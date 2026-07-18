@@ -1,0 +1,90 @@
+{
+  "version": 3,
+  "targets": {
+    "net8.0": {
+      "GenerationArk.Simulation/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v8.0",
+        "compile": {
+          "bin/placeholder/GenerationArk.Simulation.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/GenerationArk.Simulation.dll": {}
+        }
+      }
+    }
+  },
+  "libraries": {
+    "GenerationArk.Simulation/1.0.0": {
+      "type": "project",
+      "path": "../GenerationArk.Simulation/GenerationArk.Simulation.csproj",
+      "msbuildProject": "../GenerationArk.Simulation/GenerationArk.Simulation.csproj"
+    }
+  },
+  "projectFileDependencyGroups": {
+    "net8.0": [
+      "GenerationArk.Simulation >= 1.0.0"
+    ]
+  },
+  "packageFolders": {
+    "/home/calvin/.nuget/packages/": {}
+  },
+  "project": {
+    "version": "1.0.0",
+    "restore": {
+      "projectUniqueName": "/home/calvin/Generation-Ark/generation-ark-clock/GenerationArk.Simulation.Tests/GenerationArk.Simulation.Tests.csproj",
+      "projectName": "GenerationArk.Simulation.Tests",
+      "projectPath": "/home/calvin/Generation-Ark/generation-ark-clock/GenerationArk.Simulation.Tests/GenerationArk.Simulation.Tests.csproj",
+      "packagesPath": "/home/calvin/.nuget/packages/",
+      "outputPath": "/home/calvin/Generation-Ark/generation-ark-clock/GenerationArk.Simulation.Tests/obj/",
+      "projectStyle": "PackageReference",
+      "configFilePaths": [
+        "/home/calvin/.nuget/NuGet/NuGet.Config"
+      ],
+      "originalTargetFrameworks": [
+        "net8.0"
+      ],
+      "sources": {
+        "https://api.nuget.org/v3/index.json": {}
+      },
+      "frameworks": {
+        "net8.0": {
+          "targetAlias": "net8.0",
+          "projectReferences": {
+            "/home/calvin/Generation-Ark/generation-ark-clock/GenerationArk.Simulation/GenerationArk.Simulation.csproj": {
+              "projectPath": "/home/calvin/Generation-Ark/generation-ark-clock/GenerationArk.Simulation/GenerationArk.Simulation.csproj"
+            }
+          }
+        }
+      },
+      "warningProperties": {
+        "allWarningsAsErrors": true,
+        "warnAsError": [
+          "NU1605"
+        ]
+      }
+    },
+    "frameworks": {
+      "net8.0": {
+        "targetAlias": "net8.0",
+        "imports": [
+          "net461",
+          "net462",
+          "net47",
+          "net471",
+          "net472",
+          "net48",
+          "net481"
+        ],
+        "assetTargetFallback": true,
+        "warn": true,
+        "frameworkReferences": {
+          "Microsoft.NETCore.App": {
+            "privateAssets": "all"
+          }
+        },
+        "runtimeIdentifierGraphPath": "/usr/lib/dotnet/sdk/8.0.129/PortableRuntimeIdentifierGraph.json"
+      }
+    }
+  }
+}

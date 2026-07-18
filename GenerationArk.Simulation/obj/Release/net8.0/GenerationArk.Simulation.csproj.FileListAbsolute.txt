@@ -1,0 +1,13 @@
+/home/calvin/Generation-Ark/generation-ark-clock/GenerationArk.Simulation/obj/Release/net8.0/GenerationArk.Simulation.GeneratedMSBuildEditorConfig.editorconfig
+/home/calvin/Generation-Ark/generation-ark-clock/GenerationArk.Simulation/obj/Release/net8.0/GenerationArk.Simulation.AssemblyInfoInputs.cache
+/home/calvin/Generation-Ark/generation-ark-clock/GenerationArk.Simulation/obj/Release/net8.0/GenerationArk.Simulation.AssemblyInfo.cs
+/home/calvin/Generation-Ark/generation-ark-clock/GenerationArk.Simulation/obj/Release/net8.0/GenerationArk.Simulation.csproj.CoreCompileInputs.cache
+/home/calvin/Generation-Ark/generation-ark-clock/GenerationArk.Simulation/bin/Release/net8.0/GenerationArk.Simulation.deps.json
+/home/calvin/Generation-Ark/generation-ark-clock/GenerationArk.Simulation/bin/Release/net8.0/GenerationArk.Simulation.dll
+/home/calvin/Generation-Ark/generation-ark-clock/GenerationArk.Simulation/bin/Release/net8.0/GenerationArk.Simulation.pdb
+/home/calvin/Generation-Ark/generation-ark-clock/GenerationArk.Simulation/bin/Release/net8.0/GenerationArk.Simulation.xml
+/home/calvin/Generation-Ark/generation-ark-clock/GenerationArk.Simulation/obj/Release/net8.0/GenerationArk.Simulation.dll
+/home/calvin/Generation-Ark/generation-ark-clock/GenerationArk.Simulation/obj/Release/net8.0/refint/GenerationArk.Simulation.dll
+/home/calvin/Generation-Ark/generation-ark-clock/GenerationArk.Simulation/obj/Release/net8.0/GenerationArk.Simulation.xml
+/home/calvin/Generation-Ark/generation-ark-clock/GenerationArk.Simulation/obj/Release/net8.0/GenerationArk.Simulation.pdb
+/home/calvin/Generation-Ark/generation-ark-clock/GenerationArk.Simulation/obj/Release/net8.0/ref/GenerationArk.Simulation.dll
