@@ -80,6 +80,23 @@ public sealed class ComponentRegistry
         GetStore(component.ComponentTypeId).Add(entityId, component.Value);
     }
 
+    internal void Replace(EntityRegistry entities, EntityId entityId, ComponentValue component)
+    {
+        ArgumentNullException.ThrowIfNull(entities);
+        ArgumentNullException.ThrowIfNull(component);
+        if (!entities.Contains(entityId))
+        {
+            throw new InvalidOperationException(
+                $"Cannot replace component {component.ComponentTypeId} on missing entity {entityId}.");
+        }
+
+        ComponentStore store = _stores.TryGetValue(component.ComponentTypeId, out ComponentStore? registered)
+            ? registered
+            : throw new InvalidOperationException(
+                $"Unknown component type ID {component.ComponentTypeId}.");
+        store.Replace(entityId, component.Value);
+    }
+
     internal void Remove(EntityRegistry entities, EntityId entityId, ComponentTypeId componentTypeId)
     {
         ArgumentNullException.ThrowIfNull(entities);
