@@ -114,3 +114,8 @@ The test project uses a small built-in runner and no NuGet test framework, keepi
 ## Next milestone
 
 The next dependency-first candidate is Step 11: deterministic spatial entity indexes and position mutation. Pathfinding, reservations, jobs, atmosphere, construction, and Unity presentation remain excluded.
+
+## Project Milestones
+
+- Step 10 owner validation: `docs/milestones/step-10-owner-validation.md`
+- Step 11 tracking: GitHub issue #1 -- Deterministic pathfinding and movement
