@@ -22,9 +22,13 @@ internal static class ComponentReplacementMilestoneTests
             entityId,
             new ComponentValue(MovementAgentState.ComponentTypeId, replacement));
 
-        TestAssert.Equal(original, world.Components.Get(entityId, MovementAgentState.ComponentTypeId));
+        TestAssert.Equal(
+            original,
+            (MovementAgentState)world.Components.Get(entityId, MovementAgentState.ComponentTypeId));
         world.CommitMutations(scheduler, new SimTick(2));
-        TestAssert.Equal(replacement, world.Components.Get(entityId, MovementAgentState.ComponentTypeId));
+        TestAssert.Equal(
+            replacement,
+            (MovementAgentState)world.Components.Get(entityId, MovementAgentState.ComponentTypeId));
     }
 
     public static void ConflictingReplacementsRejectAtomically()
@@ -47,7 +51,9 @@ internal static class ComponentReplacementMilestoneTests
 
         TestAssert.Throws<MutationValidationException>(
             () => world.CommitMutations(scheduler, new SimTick(2)));
-        TestAssert.Equal(original, world.Components.Get(entityId, MovementAgentState.ComponentTypeId));
+        TestAssert.Equal(
+            original,
+            (MovementAgentState)world.Components.Get(entityId, MovementAgentState.ComponentTypeId));
     }
 
     public static void MovementReplacementChangesCanonicalChecksum()
@@ -55,15 +61,16 @@ internal static class ComponentReplacementMilestoneTests
         WorldState world = CreateWorld();
         DeterministicScheduler scheduler = CreateScheduler();
         EntityId entityId = CreateMovementEntity(world, scheduler);
-        ulong before = StateChecksum.Compute(new SimTick(1), world, scheduler);
+        SimTick checksumTick = new(2);
+        ulong before = StateChecksum.Compute(checksumTick, world, scheduler);
 
         world.Mutations.EnqueueReplace(
             entityId,
             new ComponentValue(
                 MovementAgentState.ComponentTypeId,
                 new MovementAgentState(new MapCellId(1), new MapCellId(3), 1)));
-        world.CommitMutations(scheduler, new SimTick(2));
-        ulong after = StateChecksum.Compute(new SimTick(2), world, scheduler);
+        world.CommitMutations(scheduler, checksumTick);
+        ulong after = StateChecksum.Compute(checksumTick, world, scheduler);
 
         TestAssert.True(before != after, "Movement replacement must change the canonical checksum.");
     }
