@@ -113,9 +113,9 @@ The test project uses a small built-in runner and no NuGet test framework, keepi
 
 ## Next milestone
 
-The next dependency-first candidate is Step 11: deterministic spatial entity indexes and position mutation. Pathfinding, reservations, jobs, atmosphere, construction, and Unity presentation remain excluded.
+The frozen dependency-first candidate is Step 11: deterministic spatial entity indexes and buffered position mutation. The contract attaches active entities to canonical map cells while preserving atomic Commit semantics, persistence, checksums, and replay continuity. Pathfinding, autonomous movement, occupancy limits, reservations, jobs, atmosphere, construction, and Unity presentation remain excluded. Implementation still requires explicit approval of the contract and its save/checksum version boundaries.
 
 ## Project Milestones
 
 - Step 10 owner validation: `docs/milestones/step-10-owner-validation.md`
-- Step 11 tracking: GitHub issue #1 -- Deterministic pathfinding and movement
+- Step 11 frozen candidate contract: `docs/milestones/step-11-contract.md`\n- Historical broader proposal: GitHub issue #1 -- Deterministic pathfinding and movement (not the Step 11 implementation contract)
