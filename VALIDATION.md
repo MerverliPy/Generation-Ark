@@ -29,6 +29,9 @@ Run from the verified repository checkout with .NET SDK `8.0.129`:
 ```bash
 cd /home/calvin/Generation-Ark/generation-ark-clock
 
+# Required once for a clean checkout or after generated build assets are absent.
+/usr/bin/dotnet restore GenerationArk.sln
+
 /usr/bin/dotnet build GenerationArk.sln -c Release --no-restore
 /usr/bin/dotnet run \
   --project GenerationArk.Simulation.Tests/GenerationArk.Simulation.Tests.csproj \
