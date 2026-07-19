@@ -1,0 +1,35 @@
+name: Step 11 Validation
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - step11/deterministic-pathfinding-movement
+
+permissions:
+  contents: read
+
+jobs:
+  release-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore GenerationArk.Simulation.Tests/GenerationArk.Simulation.Tests.csproj
+
+      - name: Build Release
+        run: dotnet build GenerationArk.Simulation.Tests/GenerationArk.Simulation.Tests.csproj --configuration Release --no-restore
+
+      - name: Run exact harness
+        run: dotnet run --project GenerationArk.Simulation.Tests/GenerationArk.Simulation.Tests.csproj --configuration Release --no-build
