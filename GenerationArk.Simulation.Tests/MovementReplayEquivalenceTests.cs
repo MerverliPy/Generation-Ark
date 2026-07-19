@@ -21,9 +21,9 @@ internal static class MovementReplayEquivalenceTests
         IReplaySimulationSession baselineSession = factory.CreateNew();
         HeadlessRunResult baseline = new HeadlessSimulationRunner().RunToTick(
             baselineSession,
-            finalTick: 6,
-            commands: Array.Empty<ReplayCommand>(),
-            checkpointTicks: new long[] { 1, 2, 3, 4, 5, 6 });
+            6,
+            Array.Empty<ReplayCommand>(),
+            new long[] { 1, 2, 3, 4, 5, 6 });
 
         var log = new ReplayLog(
             ReplayLog.CurrentFormatVersion,
@@ -36,7 +36,7 @@ internal static class MovementReplayEquivalenceTests
         ReplayRunResult replay = new ReplayRunner().Run(factory.CreateNew(), log);
 
         TestAssert.True(replay.Succeeded, "Movement replay diverged from recorded checkpoints.");
-        TestAssert.Equal(baseline.FinalChecksum, replay.FinalChecksum);
+        TestAssert.Equal(baseline.FinalChecksum, replay.Run.FinalChecksum);
 
         var baselineMovement = ((MovementScenarioSession)baselineSession).Movement;
         TestAssert.Equal(new MapCellId(5), baselineMovement.CurrentCell);
