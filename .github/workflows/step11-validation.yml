@@ -29,7 +29,22 @@ jobs:
         run: dotnet restore GenerationArk.Simulation.Tests/GenerationArk.Simulation.Tests.csproj --verbosity quiet
 
       - name: Build Release
-        run: dotnet build GenerationArk.Simulation.Tests/GenerationArk.Simulation.Tests.csproj --configuration Release --no-restore --verbosity quiet
+        id: build
+        shell: bash
+        run: |
+          set +e
+          dotnet build GenerationArk.Simulation.Tests/GenerationArk.Simulation.Tests.csproj --configuration Release --no-restore --verbosity minimal > step11-build.log 2>&1
+          status=$?
+          cat step11-build.log
+          exit $status
+
+      - name: Upload build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: step11-build-diagnostics
+          path: step11-build.log
+          if-no-files-found: error
 
       - name: Run exact harness
         run: dotnet run --project GenerationArk.Simulation.Tests/GenerationArk.Simulation.Tests.csproj --configuration Release --no-build
