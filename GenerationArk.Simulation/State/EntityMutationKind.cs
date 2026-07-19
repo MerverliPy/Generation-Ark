@@ -5,5 +5,6 @@ public enum EntityMutationKind : byte
     CreateEntity = 1,
     DestroyEntity = 2,
     AddComponent = 3,
-    RemoveComponent = 4
+    RemoveComponent = 4,
+    ReplaceComponent = 5
 }
