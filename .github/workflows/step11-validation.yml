@@ -26,10 +26,10 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Restore
-        run: dotnet restore GenerationArk.Simulation.Tests/GenerationArk.Simulation.Tests.csproj
+        run: dotnet restore GenerationArk.Simulation.Tests/GenerationArk.Simulation.Tests.csproj --verbosity quiet
 
       - name: Build Release
-        run: dotnet build GenerationArk.Simulation.Tests/GenerationArk.Simulation.Tests.csproj --configuration Release --no-restore
+        run: dotnet build GenerationArk.Simulation.Tests/GenerationArk.Simulation.Tests.csproj --configuration Release --no-restore --verbosity quiet
 
       - name: Run exact harness
         run: dotnet run --project GenerationArk.Simulation.Tests/GenerationArk.Simulation.Tests.csproj --configuration Release --no-build
