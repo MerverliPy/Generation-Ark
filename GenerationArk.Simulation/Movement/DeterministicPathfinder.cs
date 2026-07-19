@@ -60,25 +60,14 @@ public static class DeterministicPathfinder
     private static IEnumerable<MapCellId> EnumerateNeighborsCanonical(MapState map, MapCellId cell)
     {
         GridPosition position = cell.ToPosition(map.Width, map.Height);
-        Span<MapCellId> candidates = stackalloc MapCellId[4];
+        var candidates = new MapCellId[4];
         int count = 0;
 
         Add(position.X, position.Y - 1);
         Add(position.X - 1, position.Y);
         Add(position.X + 1, position.Y);
         Add(position.X, position.Y + 1);
-
-        for (int left = 1; left < count; left++)
-        {
-            MapCellId value = candidates[left];
-            int right = left - 1;
-            while (right >= 0 && candidates[right].Value > value.Value)
-            {
-                candidates[right + 1] = candidates[right];
-                right--;
-            }
-            candidates[right + 1] = value;
-        }
+        Array.Sort(candidates, 0, count);
 
         for (int index = 0; index < count; index++)
         {
