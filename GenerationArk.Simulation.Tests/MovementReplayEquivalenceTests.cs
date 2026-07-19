@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using GenerationArk.Simulation.Core;
 using GenerationArk.Simulation.Diagnostics;
 using GenerationArk.Simulation.Map;
@@ -44,9 +45,81 @@ internal static class MovementReplayEquivalenceTests
         TestAssert.Equal<ulong>(5, baselineMovement.RouteRevision);
     }
 
+    public static void MovementFramePatternsProduceIdenticalCheckpointsAndFinalState()
+    {
+        var baselineFactory = new MovementScenarioFactory();
+        HeadlessRunResult baseline = new HeadlessSimulationRunner().RunToTick(
+            baselineFactory.CreateNew(),
+            6,
+            Array.Empty<ReplayCommand>(),
+            new long[] { 1, 2, 3, 4, 5, 6 });
+        var log = new ReplayLog(
+            ReplayLog.CurrentFormatVersion,
+            Seed,
+            BuildVersion,
+            finalTick: 6,
+            commands: Array.Empty<ReplayCommand>(),
+            checkpoints: baseline.Checkpoints);
+        var patterns = new[]
+        {
+            new FramePattern("stable-30", new[]
+            {
+                new FramePatternStep(1.0 / 30.0, SimulationSpeedProfile.Normal)
+            }),
+            new FramePattern("stable-144", new[]
+            {
+                new FramePatternStep(1.0 / 144.0, SimulationSpeedProfile.Normal)
+            }),
+            new FramePattern("stalls-speed-pause-step", new[]
+            {
+                new FramePatternStep(1.0 / 60.0, SimulationSpeedProfile.Normal),
+                new FramePatternStep(1.0 / 240.0, SimulationSpeedProfile.Fast),
+                new FramePatternStep(0.0, SimulationSpeedProfile.Paused, manualSteps: 1),
+                new FramePatternStep(0.25, SimulationSpeedProfile.Paused),
+                new FramePatternStep(0.005, SimulationSpeedProfile.VeryFast),
+                new FramePatternStep(0.10, SimulationSpeedProfile.Normal)
+            })
+        };
+        var factory = new MovementScenarioFactory();
+
+        IReadOnlyList<FramePatternRunResult> results =
+            new FramePatternDeterminismValidator().Validate(factory, log, patterns);
+
+        TestAssert.Equal(patterns.Length, results.Count);
+        TestAssert.Equal(patterns.Length, factory.CreatedSessions.Count);
+        MovementAgentState expected = factory.CreatedSessions[0].Movement;
+        for (int index = 0; index < results.Count; index++)
+        {
+            FramePatternRunResult result = results[index];
+            MovementAgentState actual = factory.CreatedSessions[index].Movement;
+            TestAssert.Equal(log.FinalTick, result.FinalTick);
+            TestAssert.Equal(baseline.FinalChecksum, result.FinalChecksum);
+            TestAssert.Equal(log.Checkpoints.Count, result.Checkpoints.Count);
+            for (int checkpointIndex = 0; checkpointIndex < log.Checkpoints.Count; checkpointIndex++)
+            {
+                TestAssert.Equal(log.Checkpoints[checkpointIndex].Tick, result.Checkpoints[checkpointIndex].Tick);
+                TestAssert.Equal(log.Checkpoints[checkpointIndex].Checksum, result.Checkpoints[checkpointIndex].Checksum);
+            }
+            TestAssert.Equal(expected.CurrentCell, actual.CurrentCell);
+            TestAssert.Equal(expected.DestinationCell, actual.DestinationCell);
+            TestAssert.Equal(expected.RouteRevision, actual.RouteRevision);
+        }
+
+        TestAssert.Equal(new MapCellId(5), expected.CurrentCell);
+        TestAssert.Equal(new MapCellId(5), expected.DestinationCell);
+        TestAssert.Equal<ulong>(5, expected.RouteRevision);
+    }
+
     private sealed class MovementScenarioFactory : IReplaySimulationFactory
     {
-        public IReplaySimulationSession CreateNew() => new MovementScenarioSession();
+        public List<MovementScenarioSession> CreatedSessions { get; } = new();
+
+        public IReplaySimulationSession CreateNew()
+        {
+            var session = new MovementScenarioSession();
+            CreatedSessions.Add(session);
+            return session;
+        }
 
         public IReplaySimulationSession Load(SimulationSaveEnvelope save) =>
             throw new NotSupportedException("Movement replay equivalence does not load saves.");
