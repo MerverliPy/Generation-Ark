@@ -89,7 +89,9 @@ internal static class Program
             (nameof(PathfindingMilestoneTests.AuthoritativePlannerAdvancesOneCanonicalCellPerCommitIntent), PathfindingMilestoneTests.AuthoritativePlannerAdvancesOneCanonicalCellPerCommitIntent),
             (nameof(ComponentReplacementMilestoneTests.ReplacementRemainsInvisibleUntilCommitAndThenApplies), ComponentReplacementMilestoneTests.ReplacementRemainsInvisibleUntilCommitAndThenApplies),
             (nameof(ComponentReplacementMilestoneTests.ConflictingReplacementsRejectAtomically), ComponentReplacementMilestoneTests.ConflictingReplacementsRejectAtomically),
-            (nameof(ComponentReplacementMilestoneTests.MovementReplacementChangesCanonicalChecksum), ComponentReplacementMilestoneTests.MovementReplacementChangesCanonicalChecksum)
+            (nameof(ComponentReplacementMilestoneTests.MovementReplacementChangesCanonicalChecksum), ComponentReplacementMilestoneTests.MovementReplacementChangesCanonicalChecksum),
+            (nameof(MovementSaveLoadContinuityTests.MovementEntityRestorePreservesCanonicalComponentState), MovementSaveLoadContinuityTests.MovementEntityRestorePreservesCanonicalComponentState),
+            (nameof(MovementSaveLoadContinuityTests.SaveLoadResumedMovementMatchesUninterruptedMovement), MovementSaveLoadContinuityTests.SaveLoadResumedMovementMatchesUninterruptedMovement)
         };
 
         int failures = 0;
