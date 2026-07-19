@@ -111,6 +111,18 @@ internal static class MovementReplayEquivalenceTests
         TestAssert.Equal<ulong>(5, expected.RouteRevision);
     }
 
+    public static void DynamicObstructionMovementSoakRepeatsCheckpointAndFinalChecksums()
+    {
+        SoakRunResult result = new DeterministicSoakRunner().RunTwice(
+            new DynamicObstructionScenarioFactory(),
+            totalTicks: 20_000,
+            checkpointInterval: 1_000);
+
+        TestAssert.True(result.Succeeded, "Dynamic-obstruction movement soak diverged.");
+        TestAssert.Equal(20, result.CheckpointCount);
+        TestAssert.Equal(result.FirstFinalChecksum, result.SecondFinalChecksum);
+    }
+
     private sealed class MovementScenarioFactory : IReplaySimulationFactory
     {
         public List<MovementScenarioSession> CreatedSessions { get; } = new();
@@ -185,5 +197,112 @@ internal static class MovementReplayEquivalenceTests
 
         public SimulationSaveEnvelope CaptureSave() =>
             throw new NotSupportedException("Movement replay equivalence does not capture saves.");
+    }
+
+    private sealed class DynamicObstructionScenarioFactory : IReplaySimulationFactory
+    {
+        public IReplaySimulationSession CreateNew() => new DynamicObstructionScenarioSession();
+
+        public IReplaySimulationSession Load(SimulationSaveEnvelope save) =>
+            throw new NotSupportedException("Dynamic-obstruction movement soak does not load saves.");
+    }
+
+    private sealed class DynamicObstructionScenarioSession : IReplaySimulationSession
+    {
+        private static readonly MapCellDefinitionId FloorDefinition = new(1);
+        private static readonly MapCellDefinitionId BlockedDefinition = new(2);
+        private readonly WorldState _world;
+        private readonly DeterministicScheduler _scheduler;
+        private readonly EntityId _entityId;
+
+        public DynamicObstructionScenarioSession()
+        {
+            var definitions = new MapCellDefinitionRegistry(new[]
+            {
+                new MapCellDefinition(FloorDefinition, ParticipatesInRoomTopology: true),
+                new MapCellDefinition(BlockedDefinition, ParticipatesInRoomTopology: false)
+            });
+            var map = new MapState(9, 3, definitions, FloorDefinition);
+            _world = new WorldState(
+                componentRegistrations: new[] { MovementAgentState.CreateRegistration() },
+                map: map);
+            _scheduler = new DeterministicScheduler(
+                new ScheduledEventHandlerRegistry(Array.Empty<IScheduledEventHandler>()));
+            _world.Mutations.EnqueueCreate(new[]
+            {
+                new ComponentValue(
+                    MovementAgentState.ComponentTypeId,
+                    new MovementAgentState(Cell(0, 1), Cell(8, 1), 0))
+            });
+            _entityId = _world.CommitMutations(_scheduler, new SimTick(0)).CreatedEntityIds[0];
+        }
+
+        public long CurrentTick { get; private set; }
+
+        private MovementAgentState Movement =>
+            (MovementAgentState)_world.Components.Get(_entityId, MovementAgentState.ComponentTypeId);
+
+        public void SubmitCommand(ReplayCommand command)
+        {
+            ArgumentNullException.ThrowIfNull(command);
+            throw new InvalidOperationException("Dynamic-obstruction movement soak accepts no replay commands.");
+        }
+
+        public void RunOneTick()
+        {
+            CurrentTick++;
+
+            if (CurrentTick % 11 == 0)
+            {
+                int obstacleX = 2 + (int)((CurrentTick / 11) % 5);
+                MapCellId obstacle = Cell(obstacleX, 1);
+                MapCellDefinitionId nextDefinition =
+                    _world.Map.GetCellDefinition(obstacle) == FloorDefinition
+                        ? BlockedDefinition
+                        : FloorDefinition;
+                _world.Mutations.EnqueueSetCellDefinition(obstacle, nextDefinition);
+            }
+
+            MovementAgentState current = Movement;
+            if (current.CurrentCell == current.DestinationCell)
+            {
+                MapCellId destination = current.DestinationCell == Cell(8, 1)
+                    ? Cell(0, 1)
+                    : Cell(8, 1);
+                current = new MovementAgentState(
+                    current.CurrentCell,
+                    destination,
+                    checked(current.RouteRevision + 1));
+                _world.Mutations.EnqueueReplace(
+                    _entityId,
+                    new ComponentValue(MovementAgentState.ComponentTypeId, current));
+            }
+
+            if (_world.Mutations.Count > 0)
+            {
+                _world.CommitMutations(_scheduler, new SimTick(CurrentTick));
+            }
+
+            MovementAgentState next = AuthoritativeMovementPlanner.PlanNext(
+                _world.Map,
+                Movement,
+                cell => _world.Map.GetCellDefinition(cell) == FloorDefinition);
+            if (next != Movement)
+            {
+                _world.Mutations.EnqueueReplace(
+                    _entityId,
+                    new ComponentValue(MovementAgentState.ComponentTypeId, next));
+                _world.CommitMutations(_scheduler, new SimTick(CurrentTick));
+            }
+        }
+
+        public ulong CaptureChecksum() =>
+            StateChecksum.Compute(new SimTick(CurrentTick), _world, _scheduler);
+
+        public SimulationSaveEnvelope CaptureSave() =>
+            throw new NotSupportedException("Dynamic-obstruction movement soak does not capture saves.");
+
+        private static MapCellId Cell(int x, int y) =>
+            MapCellId.FromPosition(new GridPosition(x, y), width: 9, height: 3);
     }
 }
