@@ -1,0 +1,1501 @@
+Generation Ark — Simulation Clock Technical Specification
+
+Document version: 0.1
+Status: Foundation specification
+Implementation target: C# / Unity
+Determinism target: Identical results for the same build, seed, initial state, commands, and tick count
+Backlog item: Deterministic fixed-tick simulation clock
+
+⸻
+
+1. Purpose
+
+The simulation clock is the authoritative driver of all Generation Ark gameplay.
+
+It must ensure that:
+
+* Rendering speed does not alter simulation outcomes.
+* Pausing and changing speed do not alter simulation outcomes.
+* Save/load does not alter future simulation outcomes.
+* Systems execute in a fixed and inspectable order.
+* Scheduled events execute at exact simulation ticks.
+* Random outcomes are reproducible and isolated between systems.
+* Long-duration simulations can run faster than real time.
+* Determinism failures can be located at the first divergent tick.
+
+The clock is not merely a timer. It defines the ordering, ownership, and reproducibility rules for the entire simulation.
+
+⸻
+
+2. Non-negotiable invariants
+
+The implementation must preserve these invariants.
+
+2.1 Tick authority
+
+All authoritative gameplay state changes occur during simulation ticks.
+
+Unity Update, FixedUpdate, coroutines, animations, and wall-clock timers must not directly modify authoritative simulation state.
+
+2.2 Integer time
+
+Authoritative time is represented by a signed 64-bit tick index.
+
+public readonly record struct SimTick(long Value)
+{
+    public static SimTick Zero => new(0);
+    public static SimTick operator +(SimTick tick, long amount)
+        => new(checked(tick.Value + amount));
+    public static long operator -(SimTick left, SimTick right)
+        => checked(left.Value - right.Value);
+}
+
+A long provides effectively unlimited runtime for this project.
+
+2.3 No dropped ticks
+
+When the computer cannot process the requested speed, the simulation may run slower than requested.
+
+It must never skip authoritative ticks to catch up.
+
+2.4 Stable execution order
+
+Systems, entities, commands, scheduled events, and mutations must always be processed in a stable order.
+
+Never rely on:
+
+* Dictionary iteration order
+* Hash-set iteration order
+* Unity object discovery order
+* Thread completion order
+* File-system enumeration order
+* Reflection discovery order
+* Object memory addresses
+
+2.5 One authoritative simulation thread
+
+The foundation implementation runs the authoritative simulation on one thread.
+
+Background threads may eventually calculate pure results from immutable snapshots, but they may not directly modify simulation state.
+
+2.6 No wall-clock gameplay logic
+
+Authoritative code must not use:
+
+* DateTime.Now
+* DateTime.UtcNow
+* Time.time
+* Time.deltaTime
+* Time.fixedDeltaTime
+* Environment.TickCount
+* Stopwatch values as gameplay inputs
+
+These may be used for profiling only.
+
+2.7 No engine-owned randomness
+
+Authoritative code must not use:
+
+* UnityEngine.Random
+* System.Random
+* Random GUID generation
+* Hash codes whose values may change between processes or runtimes
+
+All randomness must come from the simulation random service.
+
+⸻
+
+3. Time model
+
+3.1 Tick frequency
+
+The recommended baseline is:
+
+30 simulation ticks per wall-clock second at 1× speed
+
+The tick frequency affects responsiveness and processing throughput. It does not define how much fictional time passes per tick.
+
+3.2 Calendar mapping
+
+For the vertical slice:
+
+1 simulation tick = 1 ship minute
+1 ship day        = 1,440 ticks
+1 ship month      = 43,200 ticks
+1 ship year       = 518,400 ticks
+
+The prototype calendar uses twelve 30-day months, producing a 360-day ship year.
+
+A 50-year scenario contains:
+
+25,920,000 simulation ticks
+
+Calendar conversion must be data-driven rather than embedded throughout gameplay code.
+
+public sealed record CalendarDefinition(
+    int MinutesPerHour,
+    int HoursPerDay,
+    int DaysPerMonth,
+    int MonthsPerYear)
+{
+    public long TicksPerDay => checked((long)MinutesPerHour * HoursPerDay);
+    public long TicksPerMonth => checked(TicksPerDay * DaysPerMonth);
+    public long TicksPerYear => checked(TicksPerMonth * MonthsPerYear);
+}
+
+Systems should schedule work in ticks or through calendar conversion methods. They must not duplicate calendar constants.
+
+3.3 Supported speeds
+
+Initial speed settings:
+
+Setting	Multiplier	Purpose
+Paused	0×	Planning and inspection
+Normal	1×	Detailed observation
+Fast	4×	Routine operation
+Very fast	16×	Stable periods
+Chronicle	64×	Long-term progression
+Deep fast-forward	256×	Generational transitions and automated tests
+
+Deep fast-forward may reduce visual refresh frequency, animation, and non-authoritative presentation work.
+
+It may not reduce simulation fidelity.
+
+3.4 Manual stepping
+
+The clock must support advancing exactly one tick while paused.
+
+This is required for:
+
+* Debugging
+* Replay inspection
+* Determinism testing
+* Automated test control
+* Investigating job and scheduler behavior
+
+⸻
+
+4. Core interfaces
+
+4.1 Simulation clock
+
+public interface ISimulationClock
+{
+    SimTick CurrentTick { get; }
+    SimulationSpeed RequestedSpeed { get; }
+    bool IsPaused { get; }
+    void SetSpeed(SimulationSpeed speed);
+    void Pause();
+    void StepOneTick();
+}
+
+The clock exposes simulation state but does not depend on Unity types.
+
+4.2 Simulation runner
+
+public interface ISimulationRunner
+{
+    SimTick CurrentTick { get; }
+    void RunOneTick();
+    void RunTicks(int count);
+}
+
+RunOneTick must produce the same result whether invoked by:
+
+* Unity’s frame adapter
+* An automated test
+* A headless server
+* A replay runner
+* A save validation utility
+
+4.3 Simulation system
+
+public interface ISimSystem
+{
+    SimPhase Phase { get; }
+    /// Stable, explicitly assigned order within the phase.
+    int Order { get; }
+    /// Stable identifier loaded from code or definitions.
+    SystemId Id { get; }
+    void Tick(SimContext context);
+}
+
+System order must be explicit. Registration order must not determine execution order.
+
+Systems are sorted by:
+
+Phase → Order → SystemId
+
+Duplicate combinations should fail during startup validation.
+
+4.4 Simulation context
+
+public readonly struct SimContext
+{
+    public required SimTick Tick { get; init; }
+    public required SimPhase Phase { get; init; }
+    public required WorldState World { get; init; }
+    public required ISimScheduler Scheduler { get; init; }
+    public required ISimRandom Random { get; init; }
+    public required ICommandBuffer Commands { get; init; }
+    public required IMutationBuffer Mutations { get; init; }
+    public required ISimEventWriter Events { get; init; }
+}
+
+The context must not expose presentation services, Unity scene objects, or wall-clock time.
+
+4.5 Simulation commands
+
+Player actions enter the simulation as commands.
+
+public interface ISimCommand
+{
+    CommandId Id { get; }
+    SimTick TargetTick { get; }
+    int Sequence { get; }
+    CommandValidation Validate(WorldState world);
+    void Apply(SimContext context);
+}
+
+Examples:
+
+* Change work priority
+* Designate a successor
+* Enact an emergency policy
+* Cancel a job
+* Change population policy
+
+Commands should normally target CurrentTick + 1.
+
+Commands for a tick are sorted by:
+
+TargetTick → Sequence → CommandId
+
+For the single-player prototype, Sequence is a monotonically increasing number assigned when the command is accepted.
+
+⸻
+
+5. Tick update phases
+
+Each tick executes the following phases in order.
+
+public enum SimPhase : byte
+{
+    CommandApply = 0,
+    PreSimulation = 10,
+    ShipInfrastructure = 20,
+    ResourceNetworks = 30,
+    AgentState = 40,
+    AgentDecision = 50,
+    AgentAction = 60,
+    SocialAndInstitutions = 70,
+    Narrative = 80,
+    Commit = 90,
+    Diagnostics = 100
+}
+
+Phase numbers deliberately contain gaps so future phases can be inserted without renumbering existing values.
+
+Phase 1 — CommandApply
+
+Responsibilities:
+
+* Read commands targeting the current tick.
+* Validate commands against the state at the beginning of the phase.
+* Apply valid commands in stable order.
+* Record rejected commands and their reasons.
+* Generate command-result events.
+
+Commands must not be silently ignored.
+
+Phase 2 — PreSimulation
+
+Responsibilities:
+
+* Process start-of-tick bookkeeping.
+* Apply scheduled events assigned to this phase.
+* Reset temporary accumulators.
+* Activate entities registered during the previous commit.
+* Prepare deterministic work queues.
+
+Phase 3 — ShipInfrastructure
+
+Responsibilities:
+
+* Update degradation.
+* Resolve equipment operating states.
+* Process maintenance completion.
+* Detect ship-system failures.
+* Calculate infrastructure capacity.
+
+Examples include life support, power generation, and hydroponics equipment.
+
+Phase 4 — ResourceNetworks
+
+Responsibilities:
+
+* Calculate resource production.
+* Calculate consumption.
+* Apply storage limits.
+* Apply recycling losses.
+* Resolve resource shortages.
+* Publish final resource availability for the tick.
+
+Resource calculations should use scaled integers, not floating-point state.
+
+Example:
+
+1 unit of water = 1,000 milli-units
+
+Phase 5 — AgentState
+
+Responsibilities:
+
+* Update needs.
+* Update health and age timers.
+* Process life-stage transitions.
+* Update exposure to environmental conditions.
+* Evaluate job interruption conditions.
+
+Expensive state updates may be staggered, provided that their cadence is deterministic.
+
+Phase 6 — AgentDecision
+
+Responsibilities:
+
+* Find agents requiring a new job.
+* Evaluate available work.
+* Apply work priorities.
+* Claim reservations.
+* Construct job instances.
+
+Agents that do not require a decision should not rerun full job selection every tick.
+
+Phase 7 — AgentAction
+
+Responsibilities:
+
+* Advance movement.
+* Execute job toils.
+* Transfer resources.
+* Complete or fail jobs.
+* Release or modify reservations.
+* Generate skill experience.
+
+Movement interpolation remains presentation-only. Authoritative positions are updated at tick boundaries.
+
+Phase 8 — SocialAndInstitutions
+
+Responsibilities:
+
+* Process mentorship.
+* Update relationships and households.
+* Process births and deaths.
+* Transfer institutional offices.
+* Update legitimacy and institutional competence.
+* Update policy precedent and cultural tendencies.
+
+Deaths discovered earlier in the tick are finalized here unless immediate removal is required for safety.
+
+Phase 9 — Narrative
+
+Responsibilities:
+
+* Update crisis pressure.
+* Evaluate vulnerabilities.
+* Process incident cooldowns.
+* Schedule or activate incidents.
+* Generate narrative alerts.
+
+The incident director must observe the completed operational and institutional state for the tick.
+
+Phase 10 — Commit
+
+Responsibilities:
+
+* Apply buffered entity creation.
+* Apply buffered entity destruction.
+* Apply component additions and removals.
+* Update system indexes.
+* Update cadence buckets.
+* Finalize event ordering.
+* Release invalid reservations.
+* Remove cancelled scheduled events when appropriate.
+
+Structural collection changes should occur here rather than during arbitrary system iteration.
+
+Phase 11 — Diagnostics
+
+Responsibilities:
+
+* Calculate state checksums when due.
+* Record per-system performance measurements.
+* Record queue sizes.
+* Detect invariant violations.
+* Publish replay and desynchronization information.
+
+Diagnostics must not alter authoritative outcomes.
+
+⸻
+
+6. Mutation rules
+
+A fully immutable state model would be unnecessarily expensive for the prototype. Unrestricted mutation would make ordering errors difficult to diagnose.
+
+Use controlled mutation.
+
+6.1 Direct mutations
+
+A system may directly mutate state it exclusively owns during its assigned phase.
+
+Examples:
+
+* The needs system updates colonist need values.
+* The resource system updates resource storage.
+* The institution system updates legitimacy.
+
+6.2 Buffered structural mutations
+
+The following must be buffered until the Commit phase:
+
+* Entity creation
+* Entity destruction
+* Component addition
+* Component removal
+* Registry membership changes
+* Cadence-bucket registration changes
+* Map-index membership changes
+
+6.3 Buffered aggregate mutations
+
+When multiple systems can contribute to the same value, contributions must be collected and reduced in stable order.
+
+Example:
+
+public readonly record struct ResourceDelta(
+    ResourceId Resource,
+    EntityId Source,
+    int ReasonCode,
+    long Amount);
+
+Resource deltas are sorted by:
+
+ResourceId → Source EntityId → ReasonCode → insertion sequence
+
+The resource system then applies the combined result.
+
+6.4 Phase visibility
+
+At the end of each phase, that phase’s permitted mutations are considered visible to later phases in the same tick.
+
+Structural mutations remain deferred until Commit.
+
+⸻
+
+7. Scheduler behavior
+
+The scheduler handles discrete future events.
+
+Examples:
+
+* A policy expires.
+* A child reaches a new life stage.
+* A maintenance inspection becomes due.
+* An incident consequence activates.
+* A temporary modifier ends.
+* A recurring institutional review occurs.
+
+7.1 Scheduler interface
+
+public interface ISimScheduler
+{
+    ScheduledEventId ScheduleAt(
+        SimTick dueTick,
+        SimPhase phase,
+        int priority,
+        ScheduledEventData eventData);
+    ScheduledEventId ScheduleAfter(
+        long delayTicks,
+        SimPhase phase,
+        int priority,
+        ScheduledEventData eventData);
+    ScheduledEventId ScheduleRepeating(
+        SimTick firstTick,
+        long intervalTicks,
+        SimPhase phase,
+        int priority,
+        ScheduledEventData eventData);
+    bool Cancel(ScheduledEventId eventId);
+    int CancelOwnedBy(EntityId owner);
+}
+
+7.2 Serializable event data
+
+Scheduled events must be represented as data, not delegates or lambdas.
+
+public sealed record ScheduledEventData(
+    ScheduledEventTypeId Type,
+    EntityId? Owner,
+    byte[] Payload);
+
+The final implementation may use typed payload serializers instead of raw byte arrays. The requirement is that scheduled events can be saved, loaded, replayed, inspected, and hashed.
+
+7.3 Event ordering
+
+Scheduled events are ordered by:
+
+DueTick
+→ SimPhase
+→ Priority
+→ CreationSequence
+→ ScheduledEventId
+
+CreationSequence is a monotonically increasing 64-bit value assigned when the event is scheduled.
+
+7.4 Data structure
+
+Use a deterministic binary min-heap.
+
+The heap comparison function must compare every ordering field explicitly.
+
+Do not rely on default object comparisons.
+
+7.5 Past-due events
+
+Scheduling an event earlier than the current tick is invalid and should fail validation.
+
+7.6 Same-tick scheduling
+
+An event may execute during the current tick only when its target phase has not yet started.
+
+If an event is scheduled for:
+
+* A later phase in the current tick: it may execute during the current tick.
+* The current phase: schedule it for the same phase on the next tick.
+* An earlier phase: schedule it for that phase on the next tick.
+
+This prevents recursive or order-dependent phase execution.
+
+7.7 Repeating events
+
+Repeating events are rescheduled from their previous due tick:
+
+nextDueTick = previousDueTick + interval
+
+They must not use:
+
+nextDueTick = currentTick + interval
+
+Using the previous due tick prevents drift.
+
+7.8 Cancellation
+
+Cancellation is idempotent.
+
+Cancelling an already-cancelled or completed event returns false and does not throw during ordinary gameplay.
+
+Owned events should be cancellable by owner ID when an entity is removed.
+
+7.9 Scheduler safety limits
+
+The scheduler should detect:
+
+* Excessive same-tick event creation
+* Zero or negative repeat intervals
+* Invalid event types
+* Missing event handlers
+* Payload serialization failures
+* Event loops that continually defer themselves
+
+Safety failures should produce actionable diagnostic records.
+
+⸻
+
+8. Cadence and staggered updates
+
+Not every system should update every entity every tick.
+
+Examples:
+
+State	Recommended cadence
+Movement and active toils	Every tick
+Critical needs	Every 5 ticks
+Ordinary needs	Every 15 ticks
+Social evaluation	Every 60 ticks
+Relationship decay	Every 240 ticks
+Aging checks	Every 1,440 ticks
+Institutional review	Every 43,200 ticks
+
+These are starting values, not permanent balance decisions.
+
+8.1 Deterministic staggering
+
+Entities receive a stable bucket based on their ID and the system ID.
+
+bucket = StableHash(SystemId, EntityId) mod Interval
+
+An entity is updated when:
+
+CurrentTick mod Interval == bucket
+
+The hash must be a project-owned stable hash function.
+
+8.2 Bucket collections
+
+For systems with many entities, maintain explicit cadence buckets rather than evaluating the modulo condition for every entity on every tick.
+
+Bucket membership changes occur during the Commit phase.
+
+Entities inside a bucket are ordered by stable entity ID.
+
+8.3 No random staggering
+
+Random staggering creates save/load and replay complications.
+
+Cadence assignment must be derived from stable identifiers.
+
+8.4 Time-scaled updates
+
+When a system runs every N ticks, its update receives the elapsed tick count.
+
+public interface IStaggeredSimSystem
+{
+    void TickEntity(
+        SimContext context,
+        EntityId entity,
+        int elapsedTicks);
+}
+
+This prevents update rates from accidentally changing the simulated rate of need decay, aging, or relationship changes.
+
+⸻
+
+9. Random-number ownership
+
+Randomness must be deterministic and isolated.
+
+A change to food production must not change which colonist becomes ill. Adding one random cosmetic detail must not alter the next crisis.
+
+9.1 Root seed
+
+Every simulation has a saved 64-bit root seed.
+
+public readonly record struct SimulationSeed(ulong Value);
+
+The root seed is established when the scenario begins and never changes.
+
+9.2 Counter-based random model
+
+Use keyed, counter-based random generation rather than one shared mutable random stream.
+
+A random value is derived from:
+
+RootSeed
+DomainId
+OwnerId
+PurposeId
+OccurrenceId
+LocalCounter
+
+Conceptually:
+
+ulong value = Hash64(
+    rootSeed,
+    domainId,
+    ownerId,
+    purposeId,
+    occurrenceId,
+    localCounter);
+
+This makes unrelated randomness independent.
+
+9.3 Random domains
+
+Initial domains should include:
+
+* Scenario generation
+* Colonist generation
+* Household formation
+* Birth outcomes
+* Health events
+* Job selection tie-breaking
+* Equipment failures
+* Incident selection
+* Incident consequences
+* Institutional succession
+* Cultural change
+
+Domain IDs must be stable serialized identifiers, not enum indexes that may be reordered casually.
+
+9.4 Random scopes
+
+public readonly record struct RandomScope(
+    RandomDomainId Domain,
+    ulong Owner,
+    ulong Purpose,
+    ulong Occurrence);
+public interface ISimRandom
+{
+    uint UInt32(RandomScope scope, uint counter);
+    ulong UInt64(RandomScope scope, uint counter);
+    int Range(
+        RandomScope scope,
+        uint counter,
+        int minimumInclusive,
+        int maximumExclusive);
+    bool Chance(
+        RandomScope scope,
+        uint counter,
+        uint numerator,
+        uint denominator);
+}
+
+9.5 Random cursor
+
+For an operation requiring several related draws:
+
+public ref struct RandomCursor
+{
+    private readonly ISimRandom _random;
+    private readonly RandomScope _scope;
+    private uint _counter;
+    public int Range(int minInclusive, int maxExclusive)
+        => _random.Range(
+            _scope,
+            _counter++,
+            minInclusive,
+            maxExclusive);
+}
+
+The cursor belongs to one operation. It is not shared globally.
+
+9.6 Occurrence identifiers
+
+Occurrence IDs must be stable.
+
+Examples:
+
+* Entity creation serial
+* Incident cycle number
+* Pregnancy or birth record ID
+* Equipment failure-check sequence
+* Job-selection attempt number
+* Institution succession number
+
+Do not use the current frame number or a runtime object hash.
+
+9.7 Random implementation
+
+Use a project-owned integer algorithm such as:
+
+* SplitMix64-based keyed mixing
+* PCG-based integer output
+* Another explicitly versioned integer algorithm
+
+The exact algorithm becomes part of the save and replay format.
+
+Store a random algorithm version in the save metadata.
+
+9.8 Unbiased integer ranges
+
+Range generation must use rejection sampling rather than a naive modulo operation when unbiased results matter.
+
+9.9 Floating-point random values
+
+Authoritative probability checks should prefer integer ratios:
+
+random.Chance(scope, counter, numerator: 1, denominator: 100);
+
+Avoid using floating-point percentages for authoritative decisions.
+
+⸻
+
+10. Deterministic data rules
+
+10.1 Authoritative numeric types
+
+Prefer:
+
+* int
+* long
+* Scaled integer units
+* Fixed-point values where necessary
+
+Avoid authoritative float and double state where practical.
+
+Presentation code may freely use floating-point values.
+
+10.2 Stable entity identifiers
+
+Entity IDs are monotonically assigned and never reused within a save.
+
+public readonly record struct EntityId(ulong Value);
+
+Deleted IDs remain retired.
+
+10.3 Collection ordering
+
+Dictionaries may be used for direct lookup.
+
+They may not be used as an authoritative iteration order.
+
+When processing entities:
+
+* Maintain ordered entity lists, or
+* Extract IDs and sort them explicitly, or
+* Maintain stable system-owned indexes
+
+10.4 String comparison
+
+Authoritative string identifiers must use ordinal comparison.
+
+StringComparer.Ordinal
+
+Culture-sensitive comparisons are forbidden in simulation logic.
+
+10.5 Serialization order
+
+Save files and checksums must serialize:
+
+* Entities by entity ID
+* Components by stable component type ID
+* Scheduled events by scheduler ordering
+* Commands by command ordering
+* Definitions by stable definition ID
+
+⸻
+
+11. Unity frame adapter
+
+Unity owns presentation frames. The simulation clock remains engine-independent.
+
+11.1 Frame accumulation
+
+public sealed class UnitySimulationDriver : MonoBehaviour
+{
+    private const double BaseTicksPerSecond = 30.0;
+    private double _tickAccumulator;
+    private ISimulationRunner _runner = null!;
+    private ISimulationClock _clock = null!;
+    private void Update()
+    {
+        if (_clock.IsPaused)
+        {
+            _tickAccumulator = 0;
+            return;
+        }
+        double requestedTicks =
+            Time.unscaledDeltaTime
+            * BaseTicksPerSecond
+            * (int)_clock.RequestedSpeed;
+        _tickAccumulator += requestedTicks;
+        int ticksToRun = Math.Min(
+            (int)_tickAccumulator,
+            SimulationBudgets.MaxTicksPerFrame);
+        for (int i = 0; i < ticksToRun; i++)
+        {
+            _runner.RunOneTick();
+        }
+        _tickAccumulator -= ticksToRun;
+    }
+}
+
+The production implementation needs stronger validation and profiling, but this illustrates the ownership boundary.
+
+11.2 Maximum tick budget
+
+The adapter must enforce a frame budget.
+
+When the requested speed exceeds processing capacity:
+
+* Do not drop ticks.
+* Retain the accumulator backlog.
+* Report that actual speed is below requested speed.
+* Reduce presentation work during deep fast-forward.
+* Optionally throttle rendering frequency.
+
+11.3 Interpolation
+
+Presentation systems may interpolate between the previous and current authoritative state.
+
+Interpolation must never feed values back into the simulation.
+
+11.4 Unity FixedUpdate
+
+Do not use Unity FixedUpdate as the simulation clock.
+
+Unity physics timing and Generation Ark simulation timing are separate concerns.
+
+The vertical slice should avoid authoritative Unity physics entirely.
+
+⸻
+
+12. Reference implementation structure
+
+GenerationArk.Simulation/
+│
+├── Core/
+│   ├── SimTick.cs
+│   ├── SimulationClock.cs
+│   ├── SimulationRunner.cs
+│   ├── SimulationSpeed.cs
+│   ├── SimPhase.cs
+│   ├── SimContext.cs
+│   ├── SimSystemRegistry.cs
+│   └── SimulationConstants.cs
+│
+├── Calendar/
+│   ├── CalendarDefinition.cs
+│   ├── SimDate.cs
+│   └── CalendarConverter.cs
+│
+├── Commands/
+│   ├── ISimCommand.cs
+│   ├── SimCommandQueue.cs
+│   ├── CommandId.cs
+│   ├── CommandResult.cs
+│   └── CommandSerializer.cs
+│
+├── Scheduling/
+│   ├── ISimScheduler.cs
+│   ├── DeterministicScheduler.cs
+│   ├── ScheduledEvent.cs
+│   ├── ScheduledEventId.cs
+│   ├── ScheduledEventHeap.cs
+│   ├── ScheduledEventRegistry.cs
+│   └── CadenceBuckets.cs
+│
+├── Random/
+│   ├── ISimRandom.cs
+│   ├── SimulationSeed.cs
+│   ├── RandomScope.cs
+│   ├── RandomCursor.cs
+│   ├── RandomDomainId.cs
+│   ├── StableHash64.cs
+│   └── CounterBasedRandomV1.cs
+│
+├── State/
+│   ├── WorldState.cs
+│   ├── EntityId.cs
+│   ├── EntityRegistry.cs
+│   ├── ComponentTypeId.cs
+│   ├── MutationBuffer.cs
+│   └── StateInvariantValidator.cs
+│
+├── Events/
+│   ├── SimEvent.cs
+│   ├── SimEventSequence.cs
+│   ├── SimEventLog.cs
+│   └── ISimEventWriter.cs
+│
+├── Diagnostics/
+│   ├── SimulationMetrics.cs
+│   ├── StateChecksum.cs
+│   ├── StateChecksumWriter.cs
+│   ├── DesyncReport.cs
+│   └── SimulationTrace.cs
+│
+├── Persistence/
+│   ├── SimulationSnapshot.cs
+│   ├── SimulationSaveMetadata.cs
+│   ├── ClockStateSerializer.cs
+│   ├── SchedulerStateSerializer.cs
+│   └── RandomStateSerializer.cs
+│
+└── UnityAdapter/
+    ├── UnitySimulationDriver.cs
+    ├── SimulationPresentationBridge.cs
+    └── FastForwardPresentationController.cs
+
+Tests:
+
+GenerationArk.Simulation.Tests/
+│
+├── Clock/
+├── Scheduler/
+├── Random/
+├── Commands/
+├── Determinism/
+├── Persistence/
+├── Performance/
+└── Soak/
+
+⸻
+
+13. Reference tick execution
+
+public sealed class SimulationRunner : ISimulationRunner
+{
+    private readonly WorldState _world;
+    private readonly SimSystemRegistry _systems;
+    private readonly SimCommandQueue _commands;
+    private readonly DeterministicScheduler _scheduler;
+    private readonly MutationBuffer _mutations;
+    private readonly ISimRandom _random;
+    private readonly SimulationDiagnostics _diagnostics;
+    public SimTick CurrentTick { get; private set; }
+    public void RunOneTick()
+    {
+        CurrentTick += 1;
+        foreach (SimPhase phase in SimPhaseOrder.All)
+        {
+            var context = new SimContext
+            {
+                Tick = CurrentTick,
+                Phase = phase,
+                World = _world,
+                Scheduler = _scheduler,
+                Random = _random,
+                Commands = _commands,
+                Mutations = _mutations,
+                Events = _world.EventLog
+            };
+            if (phase == SimPhase.CommandApply)
+            {
+                _commands.ApplyForTick(context);
+            }
+            _scheduler.ExecuteDueEvents(context);
+            foreach (ISimSystem system in _systems.ForPhase(phase))
+            {
+                _diagnostics.BeginSystem(system.Id);
+                system.Tick(context);
+                _diagnostics.EndSystem(system.Id);
+            }
+            if (phase == SimPhase.Commit)
+            {
+                _mutations.Commit(_world);
+            }
+            _diagnostics.ValidatePhase(context);
+        }
+        _diagnostics.CompleteTick(_world, CurrentTick);
+    }
+}
+
+Important production requirements:
+
+* SimPhaseOrder.All is an explicit immutable array.
+* ForPhase returns an immutable, pre-sorted system list.
+* Scheduler events are phase-specific.
+* Diagnostic timing never affects execution decisions.
+* Exceptions generate deterministic crash diagnostics and stop the tick.
+
+Do not attempt to continue an authoritative tick after an unexpected system exception.
+
+⸻
+
+14. Checksums and desynchronization detection
+
+14.1 Canonical checksum
+
+Calculate a non-cryptographic 64-bit checksum from canonical authoritative state.
+
+Include:
+
+* Current tick
+* Root seed and random version
+* Next entity ID
+* Next command sequence
+* Next scheduler sequence
+* Resources
+* Authoritative entities and components
+* Relationships
+* Institutions
+* Scheduled events
+* Active jobs
+* Reservations
+* Policies
+* Cultural values
+
+Exclude:
+
+* Render positions
+* Animations
+* Cached UI data
+* Profiling data
+* Wall-clock timestamps
+* Localized text
+* Audio state
+* Temporary presentation objects
+
+14.2 Checksum frequency
+
+Recommended:
+
+* Every tick in unit tests
+* Every 100 or 1,000 ticks in development builds
+* At save time
+* At replay checkpoints
+* Less frequently in release builds
+
+14.3 Component-level hashes
+
+The checksum system should optionally calculate separate hashes for:
+
+* Clock and scheduler
+* Resources
+* Colonists
+* Jobs and reservations
+* Relationships
+* Institutions
+* Narrative state
+
+When a global checksum differs, component hashes narrow the source.
+
+14.4 Desync report
+
+A desynchronization report should contain:
+
+* First divergent tick
+* Expected global checksum
+* Actual global checksum
+* Component-level checksum differences
+* Commands applied during the tick
+* Scheduled events executed
+* Systems executed
+* Entities modified
+* Random scopes requested
+* Save and build versions
+
+⸻
+
+15. Testing strategy
+
+15.1 Clock unit tests
+
+Required tests:
+
+* Pause prevents tick advancement.
+* Unpause resumes tick advancement.
+* Step advances exactly one tick.
+* Speed changes do not modify tick contents.
+* Frame accumulation produces the correct tick count.
+* Fractional accumulator values are retained.
+* Tick counts do not depend on frame size.
+* No ticks are dropped when the per-frame budget is reached.
+* Tick overflow uses checked arithmetic.
+
+15.2 Frame-pattern determinism tests
+
+Run the same scenario and command log using different frame patterns:
+
+* Stable 30 FPS
+* Stable 60 FPS
+* Stable 144 FPS
+* Alternating long and short frames
+* Random frame jitter
+* Temporary frame stalls
+* Frequent speed changes
+* Pause and manual stepping
+
+All runs must produce identical checksums at equal simulation ticks.
+
+15.3 System-order tests
+
+Verify:
+
+* Systems execute by phase, order, and stable ID.
+* Registration order does not change execution order.
+* Duplicate ordering keys fail validation.
+* Adding a presentation system does not change simulation hashes.
+
+15.4 Scheduler tests
+
+Verify:
+
+* Events never execute before their due tick.
+* Events execute in documented ordering.
+* Cancellation is idempotent.
+* Owner cancellation removes all owned events.
+* Repeating events do not drift.
+* Save/load preserves event ordering.
+* Same-tick later-phase scheduling works.
+* Same-phase scheduling defers to the next tick.
+* Past-due scheduling is rejected.
+* Identical events with identical priorities remain ordered by creation sequence.
+
+15.5 Random tests
+
+Verify:
+
+* Identical scopes and counters produce identical outputs.
+* Different domains produce independent output sequences.
+* Different owners produce independent output sequences.
+* Adding an unrelated random draw does not alter other systems.
+* Save/load does not change future random results.
+* Range generation respects bounds.
+* Probability edge cases behave correctly.
+* Random algorithm version is preserved.
+
+A critical isolation test:
+
+Adding one additional food-production random sample must not alter future incident selection, colonist traits, births, failures, or succession outcomes.
+
+15.6 Command replay tests
+
+Procedure:
+
+1. Create a scenario from a known seed.
+2. Record every accepted player command.
+3. Run to a checkpoint.
+4. Recreate the scenario.
+5. Replay the commands at their recorded ticks.
+6. Compare checksums throughout the run.
+
+The final state and every checkpoint must match.
+
+15.7 Save/load continuity tests
+
+Compare:
+
+Run A:
+Tick 0 → Tick 1,000,000
+Run B:
+Tick 0 → Tick 400,000
+Save
+Load
+Tick 400,000 → Tick 1,000,000
+
+Both runs must have identical checksums at tick 1,000,000.
+
+Repeat with saves taken during:
+
+* Active jobs
+* Movement
+* Resource shortages
+* Pending scheduled incidents
+* Institutional succession
+* Birth and death transitions
+* Emergency policies
+
+15.8 Mutation-order tests
+
+Construct multiple contributors to the same aggregate value and register them in different orders.
+
+The reduced result must remain identical.
+
+15.9 Soak tests
+
+Required automated runs:
+
+Ten-year foundation soak
+
+5,184,000 ticks
+
+Validates:
+
+* Clock stability
+* Scheduler growth
+* Event cleanup
+* ID generation
+* Memory stability
+* Checksum repeatability
+
+Fifty-year vertical-slice soak
+
+25,920,000 ticks
+
+Validates:
+
+* Multiple generations
+* Births and deaths
+* Succession
+* Long-running scheduled events
+* Institutional state
+* Save size
+* Performance degradation
+* Integer bounds
+
+15.10 Fuzz testing
+
+Generate deterministic random command logs containing:
+
+* Work-priority changes
+* Policy toggles
+* Successor appointments
+* Job cancellations
+* Pause and speed changes
+* Save/load checkpoints
+
+A failed fuzz run must print the root seed and command log so it can be reproduced exactly.
+
+⸻
+
+16. Performance targets
+
+Initial vertical-slice targets:
+
+* 30 active colonists
+* One ship deck
+* Three major ship systems
+* Five resource networks
+* Two institutions
+* Up to 10,000 pending scheduled events
+* Up to 256× requested simulation speed
+* No sustained memory growth during a 50-year soak test
+
+Performance instrumentation should record:
+
+* Total tick duration
+* Duration per phase
+* Duration per system
+* Events executed
+* Commands applied
+* Entities updated
+* Jobs evaluated
+* Paths requested
+* Mutations committed
+* Scheduler heap size
+* Event-log size
+* Allocated bytes per tick
+
+The target for ordinary ticks is zero managed allocations after initialization.
+
+Incidents, births, deaths, saves, and entity creation may allocate within controlled limits.
+
+⸻
+
+17. Error policy
+
+Development builds
+
+Invariant violations should fail immediately with detailed diagnostics.
+
+Examples:
+
+* Duplicate entity ID
+* Duplicate system order
+* Missing scheduled-event handler
+* Mutation outside the allowed phase
+* Invalid random domain
+* Event scheduled in the past
+* Reservation owned by a deleted entity
+* Non-serializable scheduled payload
+
+Release builds
+
+Player-caused validation failures should produce normal command rejection.
+
+Internal consistency failures should:
+
+1. Stop simulation advancement.
+2. Preserve the last valid state.
+3. Generate a diagnostic report.
+4. Offer save recovery or rollback when supported.
+
+Silently continuing after authoritative corruption is not acceptable.
+
+⸻
+
+18. Save-state requirements
+
+The simulation-clock save section must include:
+
+Current tick
+Requested speed
+Paused state
+Root simulation seed
+Random algorithm version
+Next entity ID
+Next command sequence
+Pending commands
+Next scheduler event ID
+Next scheduler creation sequence
+All scheduled events
+Cadence-bucket membership or reconstructible inputs
+Calendar definition ID
+Checksum format version
+Simulation schema version
+
+Presentation accumulator state does not need to be saved.
+
+After loading, the simulation resumes at an exact tick boundary.
+
+⸻
+
+19. Foundation acceptance criteria
+
+The clock backlog item is complete when all of the following are true:
+
+1. The simulation supports pause, step, 1×, 4×, 16×, 64×, and 256× requested speeds.
+2. Authoritative simulation logic is independent of Unity frame rate.
+3. No authoritative system uses wall-clock time.
+4. Systems execute in explicit stable order.
+5. Commands execute at deterministic target ticks.
+6. Scheduled events execute in deterministic order.
+7. Repeating events do not drift.
+8. Randomness is isolated by domain, owner, purpose, and occurrence.
+9. Save/load preserves the clock, scheduler, commands, and future random outcomes.
+10. A replay produces identical periodic checksums.
+11. Runs using different render-frame patterns produce identical simulation results.
+12. A deterministic ten-year headless run completes twice with identical final checksums.
+13. The simulation can identify the first divergent tick when a determinism test is intentionally broken.
+14. The clock and scheduler produce no sustained memory growth during the ten-year soak test.
+15. Diagnostic output exposes per-phase timing, queue sizes, and checksum history.
+
+⸻
+
+20. Initial implementation order
+
+Implement the specification in this sequence:
+
+Step 1 — Core tick types
+
+* SimTick
+* SimulationSpeed
+* SimPhase
+* SimulationClock
+* SimulationRunner
+
+Step 2 — System registry
+
+* Explicit registration
+* Phase and order validation
+* Immutable sorted execution lists
+
+Step 3 — Commands
+
+* Command queue
+* Target-tick ordering
+* Validation and result records
+* Replay serialization
+
+Step 4 — Scheduler
+
+* Event IDs
+* Binary min-heap
+* Event registry
+* Cancellation
+* Repeating events
+* Save/load
+
+Step 5 — Random service
+
+* Stable hash
+* Root seed
+* Domains and scopes
+* Counter-based generation
+* Isolation tests
+
+Step 6 — Diagnostics
+
+* Canonical checksum
+* Component hashes
+* Tick tracing
+* Desynchronization reports
+
+Step 7 — Unity adapter
+
+* Frame accumulator
+* Speed controls
+* Manual stepping
+* Fast-forward presentation throttling
+
+Step 8 — Test harness
+
+* Headless runner
+* Replay runner
+* Frame-pattern tests
+* Save/load comparison
+* Ten-year soak test
+
+Do not begin map, entity, or job-system implementation until the replay, scheduler, random-isolation, and save/load continuity tests pass.

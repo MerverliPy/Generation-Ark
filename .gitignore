@@ -1,0 +1,15 @@
+
+# .NET build output
+**/bin/
+**/obj/
+
+# IDE and user files
+.vs/
+.idea/
+*.user
+*.suo
+
+# Test and coverage output
+TestResults/
+coverage/
+*.trx
