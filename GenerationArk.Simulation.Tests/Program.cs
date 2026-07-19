@@ -80,7 +80,11 @@ internal static class Program
             (nameof(MapTopologyMilestoneTests.RoomTopologyUsesCardinalConnectivityAndStableRoomIds), MapTopologyMilestoneTests.RoomTopologyUsesCardinalConnectivityAndStableRoomIds),
             (nameof(MapTopologyMilestoneTests.RoomTopologySplitAndMergeRebuildsDeterministically), MapTopologyMilestoneTests.RoomTopologySplitAndMergeRebuildsDeterministically),
             (nameof(MapTopologyMilestoneTests.MapStateSaveLoadRoundTripIsCanonical), MapTopologyMilestoneTests.MapStateSaveLoadRoundTripIsCanonical),
-            (nameof(MapTopologyMilestoneTests.MapReplayFramePatternsAndTopologyChurnMatchChecksums), MapTopologyMilestoneTests.MapReplayFramePatternsAndTopologyChurnMatchChecksums)
+            (nameof(MapTopologyMilestoneTests.MapReplayFramePatternsAndTopologyChurnMatchChecksums), MapTopologyMilestoneTests.MapReplayFramePatternsAndTopologyChurnMatchChecksums),
+            (nameof(PathfindingMilestoneTests.CardinalRouteUsesCanonicalTieBreaking), PathfindingMilestoneTests.CardinalRouteUsesCanonicalTieBreaking),
+            (nameof(PathfindingMilestoneTests.BlockedCellsAreAvoidedAndBlockedDestinationFails), PathfindingMilestoneTests.BlockedCellsAreAvoidedAndBlockedDestinationFails),
+            (nameof(PathfindingMilestoneTests.RepathAfterObstructionChangeIsDeterministic), PathfindingMilestoneTests.RepathAfterObstructionChangeIsDeterministic),
+            (nameof(PathfindingMilestoneTests.OneHundredConcurrentRoutesCompleteWithoutDivergence), PathfindingMilestoneTests.OneHundredConcurrentRoutesCompleteWithoutDivergence)
         };
 
         int failures = 0;
