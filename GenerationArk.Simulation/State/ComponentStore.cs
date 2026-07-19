@@ -38,6 +38,17 @@ public sealed class ComponentStore : IComponentStore
         }
     }
 
+    public void Replace(EntityId entityId, object value)
+    {
+        _registration.ValidateRuntimeType(value);
+        if (!_values.ContainsKey(entityId))
+        {
+            throw new InvalidOperationException(
+                $"Entity {entityId} does not have component {ComponentTypeId}.");
+        }
+        _values[entityId] = value;
+    }
+
     public void Remove(EntityId entityId)
     {
         if (!_values.Remove(entityId))
