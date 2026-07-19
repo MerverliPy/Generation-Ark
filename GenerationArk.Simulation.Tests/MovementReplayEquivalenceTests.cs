@@ -8,6 +8,7 @@ using GenerationArk.Simulation.Persistence;
 using GenerationArk.Simulation.Replay;
 using GenerationArk.Simulation.Scheduling;
 using GenerationArk.Simulation.State;
+using GenerationArk.Simulation.UnityAdapter;
 
 namespace GenerationArk.Simulation.Tests;
 
