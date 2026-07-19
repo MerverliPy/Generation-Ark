@@ -93,7 +93,8 @@ internal static class Program
             (nameof(MovementSaveLoadContinuityTests.MovementEntityRestorePreservesCanonicalComponentState), MovementSaveLoadContinuityTests.MovementEntityRestorePreservesCanonicalComponentState),
             (nameof(MovementSaveLoadContinuityTests.SaveLoadResumedMovementMatchesUninterruptedMovement), MovementSaveLoadContinuityTests.SaveLoadResumedMovementMatchesUninterruptedMovement),
             (nameof(MovementReplayEquivalenceTests.MovementReplayMatchesRecordedCheckpoints), MovementReplayEquivalenceTests.MovementReplayMatchesRecordedCheckpoints),
-            (nameof(MovementReplayEquivalenceTests.MovementFramePatternsProduceIdenticalCheckpointsAndFinalState), MovementReplayEquivalenceTests.MovementFramePatternsProduceIdenticalCheckpointsAndFinalState)
+            (nameof(MovementReplayEquivalenceTests.MovementFramePatternsProduceIdenticalCheckpointsAndFinalState), MovementReplayEquivalenceTests.MovementFramePatternsProduceIdenticalCheckpointsAndFinalState),
+            (nameof(MovementReplayEquivalenceTests.DynamicObstructionMovementSoakRepeatsCheckpointAndFinalChecksums), MovementReplayEquivalenceTests.DynamicObstructionMovementSoakRepeatsCheckpointAndFinalChecksums)
         };
 
         int failures = 0;
