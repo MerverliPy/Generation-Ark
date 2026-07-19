@@ -84,7 +84,9 @@ internal static class Program
             (nameof(PathfindingMilestoneTests.CardinalRouteUsesCanonicalTieBreaking), PathfindingMilestoneTests.CardinalRouteUsesCanonicalTieBreaking),
             (nameof(PathfindingMilestoneTests.BlockedCellsAreAvoidedAndBlockedDestinationFails), PathfindingMilestoneTests.BlockedCellsAreAvoidedAndBlockedDestinationFails),
             (nameof(PathfindingMilestoneTests.RepathAfterObstructionChangeIsDeterministic), PathfindingMilestoneTests.RepathAfterObstructionChangeIsDeterministic),
-            (nameof(PathfindingMilestoneTests.OneHundredConcurrentRoutesCompleteWithoutDivergence), PathfindingMilestoneTests.OneHundredConcurrentRoutesCompleteWithoutDivergence)
+            (nameof(PathfindingMilestoneTests.OneHundredConcurrentRoutesCompleteWithoutDivergence), PathfindingMilestoneTests.OneHundredConcurrentRoutesCompleteWithoutDivergence),
+            (nameof(PathfindingMilestoneTests.MovementAgentStateSerializationAndChecksumAreCanonical), PathfindingMilestoneTests.MovementAgentStateSerializationAndChecksumAreCanonical),
+            (nameof(PathfindingMilestoneTests.AuthoritativePlannerAdvancesOneCanonicalCellPerCommitIntent), PathfindingMilestoneTests.AuthoritativePlannerAdvancesOneCanonicalCellPerCommitIntent)
         };
 
         int failures = 0;
