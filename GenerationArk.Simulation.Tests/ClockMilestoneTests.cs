@@ -8,6 +8,17 @@ namespace GenerationArk.Simulation.Tests;
 
 internal static class ClockMilestoneTests
 {
+    public static void SimTickRelationalOperatorsCompareUnderlyingValues()
+    {
+        var earlier = new SimTick(10);
+        var later = new SimTick(20);
+        var equalToEarlier = new SimTick(10);
+
+        TestAssert.True(earlier < later);
+        TestAssert.True(later > earlier);
+        TestAssert.True(earlier <= equalToEarlier);
+        TestAssert.True(equalToEarlier >= earlier);
+    }
     public static void PauseAndSingleStepAdvanceExactlyOneTick()
     {
         var fixture = new SimulationFixture(new[]

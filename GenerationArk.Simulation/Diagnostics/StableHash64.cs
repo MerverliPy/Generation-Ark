@@ -23,6 +23,18 @@ public struct StableHash64
         _value *= Prime;
     }
 
+    public void AddBoolean(bool value) => AddByte(value ? (byte)1 : (byte)0);
+
+    public void AddInt32(int value) => AddUInt32(unchecked((uint)value));
+
+    public void AddUInt32(uint value)
+    {
+        for (int shift = 0; shift < 32; shift += 8)
+        {
+            AddByte((byte)(value >> shift));
+        }
+    }
+
     public void AddInt64(long value) => AddUInt64(unchecked((ulong)value));
 
     public void AddUInt64(ulong value)
