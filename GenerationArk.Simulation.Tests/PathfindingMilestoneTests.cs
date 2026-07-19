@@ -3,8 +3,10 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using GenerationArk.Simulation.Diagnostics;
 using GenerationArk.Simulation.Map;
 using GenerationArk.Simulation.Movement;
+using GenerationArk.Simulation.State;
 
 namespace GenerationArk.Simulation.Tests;
 
@@ -88,6 +90,33 @@ internal static class PathfindingMilestoneTests
 
         TestAssert.Equal(100, routes.Count);
         TestAssert.Equal(1, routes.Distinct(StringComparer.Ordinal).Count());
+    }
+
+    public static void MovementAgentStateSerializationAndChecksumAreCanonical()
+    {
+        var state = new MovementAgentState(new MapCellId(3), new MapCellId(9), 7UL);
+        string payload = MovementAgentState.Serialize(state);
+        MovementAgentState restored = MovementAgentState.Deserialize(payload);
+        TestAssert.Equal("3:9:7", payload);
+        TestAssert.Equal(state, restored);
+
+        ComponentRegistration registration = MovementAgentState.CreateRegistration();
+        var first = new StateChecksumWriter();
+        var second = new StateChecksumWriter();
+        registration.WriteChecksum(first, state);
+        registration.WriteChecksum(second, restored);
+        TestAssert.Equal(first.Value, second.Value);
+    }
+
+    public static void AuthoritativePlannerAdvancesOneCanonicalCellPerCommitIntent()
+    {
+        MapState map = CreateMap(3, 2);
+        var initial = new MovementAgentState(Cell(0, 0, map), Cell(2, 1, map), 0UL);
+        MovementAgentState next = AuthoritativeMovementPlanner.PlanNext(map, initial, static _ => true);
+
+        TestAssert.Equal(Cell(1, 0, map), next.CurrentCell);
+        TestAssert.Equal(initial.DestinationCell, next.DestinationCell);
+        TestAssert.Equal(1UL, next.RouteRevision);
     }
 
     private static MapState CreateMap(int width, int height)
