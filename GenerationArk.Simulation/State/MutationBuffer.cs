@@ -71,6 +71,19 @@ public sealed class MutationBuffer
             initialComponents: null));
     }
 
+    public EntityMutation EnqueueReplace(EntityId entityId, ComponentValue component)
+    {
+        RequireEntityId(entityId);
+        ArgumentNullException.ThrowIfNull(component);
+        return Add(new EntityMutation(
+            AllocateSequence(),
+            EntityMutationKind.ReplaceComponent,
+            entityId,
+            component,
+            component.ComponentTypeId,
+            initialComponents: null));
+    }
+
     public MapCellMutation EnqueueSetCellDefinition(
         MapCellId cell,
         MapCellDefinitionId definition)
@@ -165,9 +178,7 @@ public sealed class MutationBuffer
                 }
                 case EntityMutationKind.AddComponent:
                 {
-                    ComponentValue component = mutation.Component
-                        ?? throw new InvalidOperationException(
-                            $"Mutation {mutation.MutationSequence} is missing its component value.");
+                    ComponentValue component = RequireComponent(mutation);
                     world.Components.Add(world.Entities, mutation.EntityId, component);
                     world.RecordLifecycleEvent(
                         mutation.MutationSequence,
@@ -191,6 +202,19 @@ public sealed class MutationBuffer
                         mutation.EntityId,
                         componentTypeId,
                         "component-removed");
+                    break;
+                }
+                case EntityMutationKind.ReplaceComponent:
+                {
+                    ComponentValue component = RequireComponent(mutation);
+                    world.Components.Replace(world.Entities, mutation.EntityId, component);
+                    world.RecordLifecycleEvent(
+                        mutation.MutationSequence,
+                        tick,
+                        EntityLifecycleEventKind.ComponentAdded,
+                        mutation.EntityId,
+                        component.ComponentTypeId,
+                        "component-replaced");
                     break;
                 }
                 default:
@@ -276,9 +300,7 @@ public sealed class MutationBuffer
                     case EntityMutationKind.AddComponent:
                     {
                         RequireSimulatedEntity(simulatedEntities, mutation);
-                        ComponentValue component = mutation.Component
-                            ?? throw new InvalidOperationException(
-                                $"Mutation {mutation.MutationSequence} is missing its component value.");
+                        ComponentValue component = RequireComponent(mutation);
                         ValidateComponent(world, component);
                         if (!simulatedComponents.Add((mutation.EntityId, component.ComponentTypeId)))
                         {
@@ -302,6 +324,18 @@ public sealed class MutationBuffer
                         {
                             throw new InvalidOperationException(
                                 $"Entity {mutation.EntityId} does not have component {componentTypeId}.");
+                        }
+                        break;
+                    }
+                    case EntityMutationKind.ReplaceComponent:
+                    {
+                        RequireSimulatedEntity(simulatedEntities, mutation);
+                        ComponentValue component = RequireComponent(mutation);
+                        ValidateComponent(world, component);
+                        if (!simulatedComponents.Contains((mutation.EntityId, component.ComponentTypeId)))
+                        {
+                            throw new InvalidOperationException(
+                                $"Entity {mutation.EntityId} does not have component {component.ComponentTypeId} to replace.");
                         }
                         break;
                     }
@@ -334,7 +368,9 @@ public sealed class MutationBuffer
                 .Where(static mutation => mutation.Kind == EntityMutationKind.DestroyEntity)
                 .ToArray();
             EntityMutation[] componentChanges = group
-                .Where(static mutation => mutation.Kind is EntityMutationKind.AddComponent or EntityMutationKind.RemoveComponent)
+                .Where(static mutation => mutation.Kind is EntityMutationKind.AddComponent
+                    or EntityMutationKind.RemoveComponent
+                    or EntityMutationKind.ReplaceComponent)
                 .ToArray();
             if (destroys.Length > 1 || (destroys.Length > 0 && componentChanges.Length > 0))
             {
@@ -346,16 +382,16 @@ public sealed class MutationBuffer
         }
 
         foreach (IGrouping<(EntityId EntityId, ComponentTypeId ComponentTypeId), EntityMutation> group in ordered
-                     .Where(static mutation => mutation.Kind is EntityMutationKind.AddComponent or EntityMutationKind.RemoveComponent)
+                     .Where(static mutation => mutation.Kind is EntityMutationKind.AddComponent
+                         or EntityMutationKind.RemoveComponent
+                         or EntityMutationKind.ReplaceComponent)
                      .GroupBy(static mutation => (
                          mutation.EntityId,
                          mutation.ComponentTypeId
                              ?? mutation.Component?.ComponentTypeId
                              ?? default)))
         {
-            int additions = group.Count(static mutation => mutation.Kind == EntityMutationKind.AddComponent);
-            int removals = group.Count(static mutation => mutation.Kind == EntityMutationKind.RemoveComponent);
-            if (additions > 1 || removals > 1 || (additions > 0 && removals > 0))
+            if (group.Count() > 1)
             {
                 foreach (EntityMutation mutation in group)
                 {
@@ -389,6 +425,11 @@ public sealed class MutationBuffer
             $"Entity mutation batch rejected. Conflicting mutation sequences: {sequences}. Reason: {reasonCode}",
             conflicts);
     }
+
+    private static ComponentValue RequireComponent(EntityMutation mutation)
+        => mutation.Component
+            ?? throw new InvalidOperationException(
+                $"Mutation {mutation.MutationSequence} is missing its component value.");
 
     private static void ValidateComponent(WorldState world, ComponentValue component)
     {
