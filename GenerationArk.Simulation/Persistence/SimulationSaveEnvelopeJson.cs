@@ -46,6 +46,16 @@ public static class SimulationSaveEnvelopeJson
             writer.WriteEndObject();
             writer.WriteString("checksum", ReplayLogJson.FormatHex(envelope.Checksum));
             writer.WriteBase64String("payloadBase64", envelope.Payload.Span);
+            if (envelope.SpatialState is SpatialStateSnapshot spatialState)
+            {
+                writer.WriteBase64String(
+                    "spatialStateBase64",
+                    SpatialStateSerializer.ToUtf8(spatialState));
+            }
+            else
+            {
+                writer.WriteNull("spatialStateBase64");
+            }
             writer.WriteEndObject();
         }
 
@@ -94,6 +104,15 @@ public static class SimulationSaveEnvelopeJson
         string payloadBase64 = root.GetProperty("payloadBase64").GetString()
             ?? throw new FormatException("payloadBase64 cannot be null.");
         byte[] payload = Convert.FromBase64String(payloadBase64);
-        return new SimulationSaveEnvelope(metadata, checksum, payload);
+        JsonElement spatialElement = root.GetProperty("spatialStateBase64");
+        SpatialStateSnapshot? spatialState = spatialElement.ValueKind switch
+        {
+            JsonValueKind.Null => null,
+            JsonValueKind.String => SpatialStateSerializer.FromUtf8(
+                Convert.FromBase64String(spatialElement.GetString()
+                    ?? throw new FormatException("spatialStateBase64 cannot be null."))),
+            _ => throw new FormatException("spatialStateBase64 must be a Base64 string or null.")
+        };
+        return new SimulationSaveEnvelope(metadata, checksum, payload, spatialState);
     }
 }

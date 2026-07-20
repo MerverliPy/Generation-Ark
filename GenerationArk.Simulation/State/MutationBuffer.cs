@@ -11,11 +11,13 @@ public sealed class MutationBuffer
 {
     private readonly List<EntityMutation> _mutations = new();
     private readonly List<MapCellMutation> _mapMutations = new();
+    private readonly List<PositionMutation> _positionMutations = new();
     private ulong _nextMutationSequence = 1;
 
-    public int Count => _mutations.Count + _mapMutations.Count;
+    public int Count => _mutations.Count + _mapMutations.Count + _positionMutations.Count;
     public int EntityMutationCount => _mutations.Count;
     public int MapMutationCount => _mapMutations.Count;
+    public int PositionMutationCount => _positionMutations.Count;
 
     public IReadOnlyList<EntityMutation> PendingMutations => _mutations
         .OrderBy(static mutation => mutation, EntityMutationComparer.Instance)
@@ -23,6 +25,10 @@ public sealed class MutationBuffer
 
     public IReadOnlyList<MapCellMutation> PendingMapMutations => _mapMutations
         .OrderBy(static mutation => mutation, MapCellMutationComparer.Instance)
+        .ToArray();
+
+    public IReadOnlyList<PositionMutation> PendingPositionMutations => _positionMutations
+        .OrderBy(static mutation => mutation, PositionMutationComparer.Instance)
         .ToArray();
 
     public EntityMutation EnqueueCreate(IEnumerable<ComponentValue>? initialComponents = null)
@@ -80,6 +86,18 @@ public sealed class MutationBuffer
             cell,
             definition));
 
+    public PositionMutation EnqueueSetPosition(EntityId entityId, EntityPosition position)
+    {
+        RequireEntityId(entityId);
+        return AddPosition(new PositionMutation(AllocateSequence(), entityId, position));
+    }
+
+    public PositionMutation EnqueueClearPosition(EntityId entityId)
+    {
+        RequireEntityId(entityId);
+        return AddPosition(new PositionMutation(AllocateSequence(), entityId, Position: null));
+    }
+
     internal MutationCommitResult Commit(
         WorldState world,
         ISimScheduler scheduler,
@@ -98,13 +116,19 @@ public sealed class MutationBuffer
         MapCellMutation[] orderedMap = _mapMutations
             .OrderBy(static mutation => mutation, MapCellMutationComparer.Instance)
             .ToArray();
+        PositionMutation[] orderedPositions = _positionMutations
+            .OrderBy(static mutation => mutation, PositionMutationComparer.Instance)
+            .ToArray();
 
         ValidateUniqueSequences(ordered);
         ValidateUniqueMapSequences(orderedMap);
+        ValidateUniquePositionSequences(orderedPositions);
+        ValidateUniqueCombinedSequences(ordered, orderedMap, orderedPositions);
         Dictionary<ulong, EntityId> assignedCreateIds = ordered.Length == 0
             ? new Dictionary<ulong, EntityId>()
             : ValidateBatch(world, ordered, tick);
         world.Map.ValidateMutationBatch(orderedMap);
+        ValidatePositionBatch(world, orderedPositions, ordered);
 
         var created = new List<EntityId>();
         int cancelledEvents = 0;
@@ -141,6 +165,7 @@ public sealed class MutationBuffer
                 {
                     EntityId entityId = mutation.EntityId;
                     world.Entities.Destroy(entityId);
+                    world.Spatial.ApplyClear(entityId);
                     foreach (ComponentTypeId componentTypeId in world.Components.RemoveAll(entityId))
                     {
                         world.RecordLifecycleEvent(
@@ -200,12 +225,25 @@ public sealed class MutationBuffer
         }
 
         world.Map.ApplyValidatedMutations(orderedMap);
+        foreach (PositionMutation mutation in orderedPositions)
+        {
+            if (mutation.Position is EntityPosition position)
+            {
+                world.Spatial.ApplySet(mutation.EntityId, position);
+            }
+            else
+            {
+                world.Spatial.ApplyClear(mutation.EntityId);
+            }
+        }
         _mutations.Clear();
         _mapMutations.Clear();
+        _positionMutations.Clear();
         return new MutationCommitResult(
-            ordered.Length + orderedMap.Length,
+            ordered.Length + orderedMap.Length + orderedPositions.Length,
             cancelledEvents,
-            created.ToArray());
+            created.ToArray(),
+            orderedPositions.Length);
     }
 
     private Dictionary<ulong, EntityId> ValidateBatch(
@@ -444,6 +482,108 @@ public sealed class MutationBuffer
         }
     }
 
+    private static void ValidateUniquePositionSequences(PositionMutation[] ordered)
+    {
+        ulong[] sequences = ordered
+            .Select(static mutation => mutation.MutationSequence)
+            .OrderBy(static sequence => sequence)
+            .ToArray();
+        for (int index = 1; index < sequences.Length; index++)
+        {
+            if (sequences[index - 1] == sequences[index])
+            {
+                throw new InvalidOperationException(
+                    $"Duplicate position mutation sequence {sequences[index]}.");
+            }
+        }
+    }
+
+    private static void ValidateUniqueCombinedSequences(
+        IEnumerable<EntityMutation> entityMutations,
+        IEnumerable<MapCellMutation> mapMutations,
+        IEnumerable<PositionMutation> positionMutations)
+    {
+        ulong[] ordered = entityMutations.Select(static mutation => mutation.MutationSequence)
+            .Concat(mapMutations.Select(static mutation => mutation.MutationSequence))
+            .Concat(positionMutations.Select(static mutation => mutation.MutationSequence))
+            .OrderBy(static sequence => sequence)
+            .ToArray();
+        for (int index = 1; index < ordered.Length; index++)
+        {
+            if (ordered[index - 1] == ordered[index])
+            {
+                throw new InvalidOperationException(
+                    $"Duplicate mutation sequence {ordered[index]} across mutation kinds.");
+            }
+        }
+    }
+
+    private static void ValidatePositionBatch(
+        WorldState world,
+        PositionMutation[] orderedPositions,
+        EntityMutation[] orderedEntities)
+    {
+        var conflicts = new List<PositionMutation>();
+        for (int index = 1; index < orderedPositions.Length; index++)
+        {
+            if (orderedPositions[index - 1].EntityId == orderedPositions[index].EntityId)
+            {
+                if (conflicts.Count == 0 || conflicts[^1] != orderedPositions[index - 1])
+                {
+                    conflicts.Add(orderedPositions[index - 1]);
+                }
+                conflicts.Add(orderedPositions[index]);
+            }
+        }
+        if (conflicts.Count > 0)
+        {
+            RejectPosition(
+                "Position mutation batch rejected. Multiple operations target one entity.",
+                conflicts);
+        }
+
+        var destroyed = new HashSet<EntityId>(orderedEntities
+            .Where(static mutation => mutation.Kind == EntityMutationKind.DestroyEntity)
+            .Select(static mutation => mutation.EntityId));
+        foreach (PositionMutation mutation in orderedPositions)
+        {
+            try
+            {
+                if (destroyed.Contains(mutation.EntityId))
+                {
+                    throw new InvalidOperationException(
+                        $"Position mutation {mutation.MutationSequence} targets entity {mutation.EntityId} scheduled for destruction.");
+                }
+                if (!world.Entities.Contains(mutation.EntityId)
+                    || world.Entities.GetLifecycleState(mutation.EntityId) != EntityLifecycleState.Active)
+                {
+                    throw new InvalidOperationException(
+                        $"Position mutation {mutation.MutationSequence} targets non-active entity {mutation.EntityId}.");
+                }
+                if (mutation.Position is EntityPosition position)
+                {
+                    world.Map.GetCellDefinition(position.Cell);
+                }
+                else if (!world.Spatial.TryGetPosition(mutation.EntityId, out _))
+                {
+                    throw new InvalidOperationException(
+                        $"Position mutation {mutation.MutationSequence} clears an unpositioned entity {mutation.EntityId}.");
+                }
+            }
+            catch (Exception exception) when (exception is InvalidOperationException or ArgumentOutOfRangeException)
+            {
+                RejectPosition(
+                    $"Position mutation batch rejected: {exception.Message}",
+                    new[] { mutation });
+            }
+        }
+    }
+
+    private static void RejectPosition(
+        string message,
+        IEnumerable<PositionMutation> conflictingMutations)
+        => throw new PositionMutationValidationException(message, conflictingMutations);
+
     private ulong AllocateSequence()
     {
         ulong sequence = _nextMutationSequence;
@@ -460,6 +600,12 @@ public sealed class MutationBuffer
     private MapCellMutation AddMap(MapCellMutation mutation)
     {
         _mapMutations.Add(mutation);
+        return mutation;
+    }
+
+    private PositionMutation AddPosition(PositionMutation mutation)
+    {
+        _positionMutations.Add(mutation);
         return mutation;
     }
 

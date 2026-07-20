@@ -28,6 +28,7 @@ public sealed class WorldState
         CleanupHooks = new EntityCleanupHookRegistry(cleanupHooks);
         LifecycleEvents = new EntityLifecycleEventLog(lifecycleEventRetentionCapacity);
         Map = map ?? MapState.CreateDefault();
+        Spatial = new SpatialEntityIndex();
     }
 
     public IReadOnlyDictionary<string, long> Counters => _counters;
@@ -38,6 +39,7 @@ public sealed class WorldState
     public EntityCleanupHookRegistry CleanupHooks { get; }
     public EntityLifecycleEventLog LifecycleEvents { get; }
     public MapState Map { get; }
+    public SpatialEntityIndex Spatial { get; }
 
     public long GetCounter(string key)
     {
@@ -96,6 +98,7 @@ public sealed class WorldState
                 $"Structural mutation buffer is not empty after Commit: {Mutations.Count} pending request(s).");
         }
         Map.ValidateInvariants();
+        Spatial.ValidateInvariants(Entities, Map);
 
         if (scheduler is null || Entities.RetiredCount == 0)
         {
@@ -130,6 +133,24 @@ public sealed class WorldState
             writer.AddByte((byte)Entities.GetLifecycleState(entityId));
             Components.WriteEntityChecksum(writer, entityId);
         }
+    }
+
+    public void WriteSpatialChecksum(StateChecksumWriter writer)
+    {
+        ArgumentNullException.ThrowIfNull(writer);
+        Spatial.ValidateInvariants(Entities, Map);
+        Spatial.WriteChecksum(writer);
+    }
+
+    internal void RestoreSpatialState(
+        IEnumerable<KeyValuePair<EntityId, EntityPosition>> positions)
+    {
+        if (Mutations.Count != 0)
+        {
+            throw new InvalidOperationException(
+                "Cannot restore spatial state while structural mutations are pending.");
+        }
+        Spatial.Restore(positions, Entities, Map);
     }
 
     internal void RestoreEntityState(
