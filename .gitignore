@@ -13,3 +13,74 @@
 TestResults/
 coverage/
 *.trx
+
+# ── Archives ──────────────────────────────────────────────────
+*.tar.gz
+*.tgz
+*.zip
+
+# ── Checksums ─────────────────────────────────────────────────
+*.sha256
+
+# ── Patches ───────────────────────────────────────────────────
+*.patch
+
+# ── Milestone & handoff packages (unpacked directories) ───────
+generation-ark-replay-continuity-milestone-r1/
+generation-ark-replay-continuity-milestone-r2/
+generation-ark-step9-entity-lifecycle-r1/
+generation-ark-step9-source-capture-kit/
+generation-ark-step10-grid-topology-r1/
+generation-ark-step10-full-handoff-20260719T155314Z/
+generation-ark-unity-adapter-milestone/
+generation-ark-unity-adapter-milestone-r2/
+step10-execution-package/
+
+# ── Operational scripts (one-time apply/validate/repair/rollback) ──
+apply-and-validate-generation-ark-diagnostics.sh
+apply-and-validate-generation-ark-random.sh
+apply-and-validate-generation-ark-scheduler.sh
+apply-and-validate-scheduler-preserve-validation.sh
+collect-generation-ark-diagnostics-baseline.sh
+generation-ark-step10-owner-preflight-collect.sh
+repair-and-validate-generation-ark-scheduler.sh
+repair-clock-cs1718-and-validate-scheduler.sh
+repair-clock-regression-and-validate-scheduler.sh
+repair-scheduler-nullability-and-validate.sh
+rollback-generation-ark-step10-20260719T162836Z.sh
+rollback-generation-ark-step9-20260719T140525Z.sh
+validate-generation-ark-scheduler.sh
+
+# ── Build/validation logs ─────────────────────────────────────
+generation-ark-replay-continuity-owner-validation-52-of-52.txt
+generation-ark-replay-continuity-source-state-before-cleanup.txt
+generation-ark-step10-dependency-build-20260719T162836Z.txt
+generation-ark-step10-dependency-tests-20260719T162836Z.txt
+generation-ark-step10-final-build-20260719T162836Z.txt
+generation-ark-step10-final-tests-20260719T162836Z.txt
+generation-ark-step10-grid-topology-owner-validation-20260719T162836Z.txt
+generation-ark-step10-initial-head-20260719T143544Z.txt
+generation-ark-step10-initial-status-20260719T143544Z.txt
+generation-ark-step10-initial-status-v2-20260719T143544Z.txt
+generation-ark-step10-post-validation-status-20260719T162836Z.txt
+generation-ark-step10-preapply-new-files-20260719T162836Z.txt
+generation-ark-step8-exact-source-20260719T080715Z-capture-validation.txt
+generation-ark-step9-entity-lifecycle-owner-validation-20260719T140525Z.txt
+generation-ark-step9-preapply-new-files-20260719T140525Z.txt
+
+# ── Preflight collector output ─────────────────────────────────
+generation-ark-step10-preflight-20260719T151226Z/
+
+# ── Nested repo wrapper directory ─────────────────────────────
+generation-ark-clock/
+
+# ── Backups and review artifacts ───────────────────────────────
+backups/
+review/
+
+# ── Project intake doc (partially filled, optional) ───────────
+generation_ark_project_intake.md
+
+# ── OS files ───────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
