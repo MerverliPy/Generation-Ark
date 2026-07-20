@@ -10,7 +10,8 @@ Authoritative post-merge receipt:
 
 ```text
 Owner validation date: 2026-07-19 America/Chicago
-Canonical main: 251350da02ed76f84aa882fc277c27dcb7d3a9bd
+Step 11 implementation merge: 251350da02ed76f84aa882fc277c27dcb7d3a9bd
+Latest reconciled canonical main validation: 3ae149614f6131630756dc78cb528d4b8972c150
 Required SDK: /usr/bin/dotnet 8.0.129
 Step 10 dependency harness: 72/72 tests passed
 Spatial behavioral reference: PASS
@@ -27,7 +28,7 @@ Step 10 remains the accepted dependency record in `docs/milestones/step-10-owner
 Run from the verified repository checkout with .NET SDK `8.0.129`:
 
 ```bash
-cd /home/calvin/Generation-Ark/generation-ark-clock
+cd /home/calvin/Generation-Ark
 
 # Required once for a clean checkout or after generated build assets are absent.
 /usr/bin/dotnet restore GenerationArk.sln
@@ -72,6 +73,26 @@ The following approval was received before implementation:
 The Step 11 save boundary is explicit: envelope JSON now requires `spatialStateBase64`; a missing field is rejected rather than interpreted as an older save. A null value represents an explicitly spatially empty simulation, while a spatial snapshot uses `SpatialStateSnapshot` schema version `1`.
 
 The earlier GitHub issue #1 proposal for pathfinding and movement is broader than the implemented Step 11 scope and is historical evidence only. Pathfinding and movement remain excluded unless separately authorized.
+
+## Step 12 contract proposed
+
+The proposed Step 12 contract is documented in
+`docs/milestones/step-12-contract.md`.
+
+```text
+Step 12 -- Deterministic Cardinal Pathfinding and Buffered Movement Intent
+Dependency gate: 82/82
+Proposed expanded gate: 92/92
+Status: Contract only; implementation is not authorized
+```
+
+`WorldState.Spatial` remains the sole authoritative entity-location source.
+The historical `step11/deterministic-pathfinding-movement` branch must not be
+merged or rebased because its `MovementAgentState.CurrentCell` duplicates that
+accepted authority.
+
+Separate approval remains required for implementation, the exact source scope,
+public movement APIs, save-schema changes, and any checksum-format transition.
 
 ## Validation integrity rules
 
