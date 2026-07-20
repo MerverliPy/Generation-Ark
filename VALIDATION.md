@@ -4,23 +4,23 @@ This document distinguishes accepted owner-machine evidence from checks that hav
 
 ## Current accepted baseline
 
-Step 10 — Deterministic Grid and Room Topology is the latest accepted milestone.
+Step 11 — Deterministic Spatial Entity Index and Position Mutation is the latest accepted milestone.
 
-Authoritative receipt:
+Authoritative post-merge receipt:
 
 ```text
-Owner validation date: 2026-07-19 UTC
+Owner validation date: 2026-07-19 America/Chicago
+Canonical main: 251350da02ed76f84aa882fc277c27dcb7d3a9bd
 Required SDK: /usr/bin/dotnet 8.0.129
-Pre-install baseline: 45f2074923f5c6ace23248f8307805666b60e35f
-Step 9 dependency harness: 62/62 tests passed
-Behavioral references: PASS
+Step 10 dependency harness: 72/72 tests passed
+Spatial behavioral reference: PASS
 Release build: 0 warnings, 0 errors
-Step 10 final harness: 72/72 tests passed
-ChecksumFormatVersion: 3
-PASS: Step 10 deterministic grid/topology compile and test gate cleared.
+Step 11 final harness: 82/82 tests passed twice with byte-identical output
+ChecksumFormatVersion: 4
+PASS: Step 11 deterministic spatial-index compile and test gate cleared.
 ```
 
-See `docs/milestones/step-10-owner-validation.md` for the accepted record.
+Step 10 remains the accepted dependency record in `docs/milestones/step-10-owner-validation.md`.
 
 ## Canonical full verification command
 
@@ -49,16 +49,16 @@ Build succeeded.
 
 A current run must be reported as a new receipt. This document does not claim that the command was rerun for a documentation-only change.
 
-## Step 11 candidate validation completed; acceptance pending
+## Step 11 owner validation completed
 
-The frozen candidate is documented in `docs/milestones/step-11-contract.md`:
+The accepted Step 11 contract is documented in `docs/milestones/step-11-contract.md`:
 
 ```text
 Step 11 — Deterministic Spatial Entity Index and Position Mutation
 Dependency gate: 72/72
 Expanded gate: 82/82
 ChecksumFormatVersion: 4
-Implementation status: Candidate validated; semantic-review corrections require post-correction validation; not accepted
+Implementation status: Accepted after post-merge owner-machine validation on canonical main 251350da02ed76f84aa882fc277c27dcb7d3a9bd
 ```
 
 The following approval was received before implementation:
