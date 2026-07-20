@@ -7,7 +7,7 @@
 **Required SDK:** `/usr/bin/dotnet` `8.0.129`  
 **Dependency gate:** Step 10 owner-validated at `72/72 tests passed.`  
 **Expected Step 11 gate:** `82/82 tests passed.`  
-**Status:** Implemented after Calvin's explicit approval on 2026-07-19; owner-machine validation remains required
+**Status:** Accepted after post-merge owner-machine validation on canonical `main` at `251350da02ed76f84aa882fc277c27dcb7d3a9bd`
 
 ## 1. Decision
 
@@ -271,7 +271,7 @@ Calvin explicitly approved the following before Step 11 implementation:
 4. the `72/72 -> 82/82` gate;
 5. implementation in a verified checkout aligned to current GitHub `main`.
 
-Completion still requires an owner-machine transcript, behavioral reference PASS, Release build with zero warnings/errors, repeated `82/82` passes, canonical save/load evidence, replay/frame-pattern evidence, exact final diff, backup/rollback locations, and a post-validation handoff. This repository change does not itself claim those receipts.
+The post-merge owner-machine receipt records the required behavioral reference PASS, a Release build with zero warnings and zero errors, repeated byte-identical `82/82` harness outputs, and a clean `main` worktree at `251350da02ed76f84aa882fc277c27dcb7d3a9bd`. The receipt also preserves the required canonical save/load, replay/frame-pattern, diff, and rollback evidence.
 
 ## 11. Superseded proposal
 
