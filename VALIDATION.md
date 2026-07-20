@@ -49,18 +49,19 @@ Build succeeded.
 
 A current run must be reported as a new receipt. This document does not claim that the command was rerun for a documentation-only change.
 
-## Step 11 readiness
+## Step 11 candidate validation completed; acceptance pending
 
 The frozen candidate is documented in `docs/milestones/step-11-contract.md`:
 
 ```text
 Step 11 — Deterministic Spatial Entity Index and Position Mutation
 Dependency gate: 72/72
-Proposed expanded gate: 82/82
-Implementation status: Not authorized
+Expanded gate: 82/82
+ChecksumFormatVersion: 4
+Implementation status: Candidate validated; semantic-review corrections require post-correction validation; not accepted
 ```
 
-Before implementation, explicit approval is required for:
+The following approval was received before implementation:
 
 - the exact Step 11 scope and file list;
 - the save schema/version transition;
@@ -68,7 +69,9 @@ Before implementation, explicit approval is required for:
 - the ten-test expansion to `82/82`;
 - use of a verified checkout aligned to current GitHub `main`.
 
-The earlier GitHub issue #1 proposal for pathfinding and movement is broader than the frozen dependency-first Step 11 candidate and is historical evidence only. Pathfinding and movement remain excluded unless separately authorized.
+The Step 11 save boundary is explicit: envelope JSON now requires `spatialStateBase64`; a missing field is rejected rather than interpreted as an older save. A null value represents an explicitly spatially empty simulation, while a spatial snapshot uses `SpatialStateSnapshot` schema version `1`.
+
+The earlier GitHub issue #1 proposal for pathfinding and movement is broader than the implemented Step 11 scope and is historical evidence only. Pathfinding and movement remain excluded unless separately authorized.
 
 ## Validation integrity rules
 

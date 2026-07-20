@@ -13,6 +13,7 @@ public static class StateChecksum
     private static readonly ChecksumComponentId ClockComponent = new("clock");
     private static readonly ChecksumComponentId EntityComponent = new("entities");
     private static readonly ChecksumComponentId MapComponent = new("map-topology");
+    private static readonly ChecksumComponentId SpatialComponent = new("spatial");
     private static readonly ChecksumComponentId RandomComponent = new("random");
     private static readonly ChecksumComponentId SchedulerComponent = new("scheduler");
     private static readonly ChecksumComponentId WorldComponent = new("world");
@@ -38,6 +39,7 @@ public static class StateChecksum
         AddWorld(writer, world);
         world.WriteEntityChecksum(writer);
         world.Map.WriteChecksum(writer);
+        world.WriteSpatialChecksum(writer);
 
         if (scheduler is not null)
         {
@@ -73,7 +75,10 @@ public static class StateChecksum
                 world.WriteEntityChecksum),
             new DelegateChecksumContributor(
                 MapComponent,
-                world.Map.WriteChecksum)
+                world.Map.WriteChecksum),
+            new DelegateChecksumContributor(
+                SpatialComponent,
+                world.WriteSpatialChecksum)
         };
 
         if (scheduler is not null)

@@ -3,11 +3,11 @@
 **Prepared:** 2026-07-19 UTC  
 **Canonical repository:** `https://github.com/MerverliPy/Generation-Ark`  
 **Baseline branch:** `main`  
-**Baseline commit:** `f6be88e0c7c273899263661e31fb6c9639b006f8`  
+**Baseline commit:** `8082ce10e21e4a17add363cc019daed7cbc3ece7`
 **Required SDK:** `/usr/bin/dotnet` `8.0.129`  
 **Dependency gate:** Step 10 owner-validated at `72/72 tests passed.`  
 **Expected Step 11 gate:** `82/82 tests passed.`  
-**Status:** Contract candidate frozen; implementation is not authorized by this document
+**Status:** Implemented after Calvin's explicit approval on 2026-07-19; owner-machine validation remains required
 
 ## 1. Decision
 
@@ -99,7 +99,7 @@ Restore must:
 - never trust serialized cache or collection order;
 - produce byte-identical canonical serialize → restore → serialize output.
 
-**Compatibility boundary:** Step 11 implementation is expected to add spatial state to the save contract and therefore requires an explicit schema/version decision before code changes. Silent interpretation of older payloads is forbidden.
+**Implemented compatibility boundary:** `SpatialStateSnapshot` schema version `1` is persisted as `spatialStateBase64` in the canonical save envelope JSON. Envelope payloads missing this field are rejected rather than silently interpreted as pre-Step 11 saves. A null field represents an explicitly spatially empty simulation.
 
 ## 5. Checksum and diagnostics
 
@@ -112,7 +112,7 @@ Add a stable spatial-state checksum component. It includes:
 
 The global checksum must include the spatial component.
 
-**Compatibility boundary:** the accepted baseline is `ChecksumFormatVersion = 3`. Step 11 implementation must not change it until Calvin explicitly approves the version transition. The implementation contract proposes version `4` if spatial state is added to canonical checksums.
+**Implemented compatibility boundary:** the accepted baseline was `ChecksumFormatVersion = 3`; Calvin approved the transition and Step 11 sets `ChecksumFormatVersion = 4`.
 
 Diagnostics must detect:
 
@@ -263,7 +263,7 @@ Step 11 does not include:
 
 ## 10. Acceptance and approval boundary
 
-This document freezes the candidate contract only. Step 11 implementation may begin only after Calvin explicitly approves:
+Calvin explicitly approved the following before Step 11 implementation:
 
 1. this scope and exact file list;
 2. the save schema/version transition;
@@ -271,7 +271,7 @@ This document freezes the candidate contract only. Step 11 implementation may be
 4. the `72/72 -> 82/82` gate;
 5. implementation in a verified checkout aligned to current GitHub `main`.
 
-Completion requires an owner-machine transcript, behavioral reference PASS, Release build with zero warnings/errors, repeated `82/82` passes, canonical save/load evidence, replay/frame-pattern evidence, exact final diff, backup/rollback locations, and a post-validation handoff.
+Completion still requires an owner-machine transcript, behavioral reference PASS, Release build with zero warnings/errors, repeated `82/82` passes, canonical save/load evidence, replay/frame-pattern evidence, exact final diff, backup/rollback locations, and a post-validation handoff. This repository change does not itself claim those receipts.
 
 ## 11. Superseded proposal
 

@@ -80,7 +80,17 @@ internal static class Program
             (nameof(MapTopologyMilestoneTests.RoomTopologyUsesCardinalConnectivityAndStableRoomIds), MapTopologyMilestoneTests.RoomTopologyUsesCardinalConnectivityAndStableRoomIds),
             (nameof(MapTopologyMilestoneTests.RoomTopologySplitAndMergeRebuildsDeterministically), MapTopologyMilestoneTests.RoomTopologySplitAndMergeRebuildsDeterministically),
             (nameof(MapTopologyMilestoneTests.MapStateSaveLoadRoundTripIsCanonical), MapTopologyMilestoneTests.MapStateSaveLoadRoundTripIsCanonical),
-            (nameof(MapTopologyMilestoneTests.MapReplayFramePatternsAndTopologyChurnMatchChecksums), MapTopologyMilestoneTests.MapReplayFramePatternsAndTopologyChurnMatchChecksums)
+            (nameof(MapTopologyMilestoneTests.MapReplayFramePatternsAndTopologyChurnMatchChecksums), MapTopologyMilestoneTests.MapReplayFramePatternsAndTopologyChurnMatchChecksums),
+            (nameof(SpatialIndexMilestoneTests.SpatialIndexesUseCanonicalCellAndEntityOrder), SpatialIndexMilestoneTests.SpatialIndexesUseCanonicalCellAndEntityOrder),
+            (nameof(SpatialIndexMilestoneTests.PositionMutationsRemainInvisibleUntilCommit), SpatialIndexMilestoneTests.PositionMutationsRemainInvisibleUntilCommit),
+            (nameof(SpatialIndexMilestoneTests.SetMoveAndClearUpdateBothIndexesAtomically), SpatialIndexMilestoneTests.SetMoveAndClearUpdateBothIndexesAtomically),
+            (nameof(SpatialIndexMilestoneTests.InvalidEntityLifecycleAndCellTargetsFailBeforeMutation), SpatialIndexMilestoneTests.InvalidEntityLifecycleAndCellTargetsFailBeforeMutation),
+            (nameof(SpatialIndexMilestoneTests.ConflictingPositionBatchFailsBeforePartialApplication), SpatialIndexMilestoneTests.ConflictingPositionBatchFailsBeforePartialApplication),
+            (nameof(SpatialIndexMilestoneTests.RequestOrderDoesNotChangeCanonicalSpatialState), SpatialIndexMilestoneTests.RequestOrderDoesNotChangeCanonicalSpatialState),
+            (nameof(SpatialIndexMilestoneTests.DestroyEntityRemovesSpatialMembershipDuringCommit), SpatialIndexMilestoneTests.DestroyEntityRemovesSpatialMembershipDuringCommit),
+            (nameof(SpatialIndexMilestoneTests.SpatialStateSaveLoadRoundTripIsCanonical), SpatialIndexMilestoneTests.SpatialStateSaveLoadRoundTripIsCanonical),
+            (nameof(SpatialIndexMilestoneTests.SpatialStateParticipatesInComponentAndGlobalChecksums), SpatialIndexMilestoneTests.SpatialStateParticipatesInComponentAndGlobalChecksums),
+            (nameof(SpatialIndexMilestoneTests.SpatialReplayFramePatternsAndChurnMatchChecksums), SpatialIndexMilestoneTests.SpatialReplayFramePatternsAndChurnMatchChecksums)
         };
 
         int failures = 0;

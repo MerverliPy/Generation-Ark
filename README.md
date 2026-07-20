@@ -1,6 +1,6 @@
 # Generation Ark — Deterministic Simulation Foundation
 
-This solution implements the deterministic simulation foundation through Step 10:
+This solution implements the deterministic simulation foundation through Step 11. Candidate validation is complete, but owner acceptance remains pending:
 
 - Integer authoritative ticks
 - Pause, speed control, and single stepping
@@ -111,11 +111,21 @@ The test project uses a small built-in runner and no NuGet test framework, keepi
 - `map-topology` component diagnostics and checksum format version 3
 - Replay/frame-pattern topology churn coverage in the executable harness
 
+### Step 11 — Deterministic Spatial Entity Index and Position Mutation
+
+- Engine-neutral integer `MapCellId` positions for active entities only
+- Canonical `EntityId -> MapCellId` and ordered `MapCellId -> EntityId` indexes
+- Buffered set, move, clear, and destroy cleanup through the existing Commit phase
+- Canonical spatial snapshots and explicit rejection of saves missing the Step 11 spatial payload field
+- `spatial` component diagnostics and checksum format version 4
+- Ten spatial tests expanding the complete executable harness from 72 to 82 tests
+
 ## Next milestone
 
-The frozen dependency-first candidate is Step 11: deterministic spatial entity indexes and buffered position mutation. The contract attaches active entities to canonical map cells while preserving atomic Commit semantics, persistence, checksums, and replay continuity. Pathfinding, autonomous movement, occupancy limits, reservations, jobs, atmosphere, construction, and Unity presentation remain excluded. Implementation still requires explicit approval of the contract and its save/checksum version boundaries.
+Step 11 implementation is present in this source tree, and candidate owner-machine validation has completed. Semantic-review corrections require a fresh post-correction validation receipt before owner acceptance; Step 11 is not accepted. It attaches active entities to canonical map cells while preserving atomic Commit semantics, persistence, checksums, and replay continuity. Pathfinding, autonomous movement, occupancy limits, reservations, jobs, atmosphere, construction, and Unity presentation remain excluded.
 
 ## Project Milestones
 
 - Step 10 owner validation: `docs/milestones/step-10-owner-validation.md`
-- Step 11 frozen candidate contract: `docs/milestones/step-11-contract.md`\n- Historical broader proposal: GitHub issue #1 -- Deterministic pathfinding and movement (not the Step 11 implementation contract)
+- Step 11 frozen candidate contract: `docs/milestones/step-11-contract.md`
+- Historical broader proposal: GitHub issue #1 -- Deterministic pathfinding and movement (not the Step 11 implementation contract)
